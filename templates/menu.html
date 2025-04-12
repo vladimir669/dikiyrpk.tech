@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Меню</title>
+    <title>Вход в систему</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -9,52 +9,61 @@
             margin: 0;
             padding: 20px;
             text-align: center;
+            background-color: #f5f5f5;
         }
         .container {
-            max-width: 600px;
+            max-width: 400px;
             margin: 0 auto;
             padding: 20px;
             border: 1px solid #ddd;
             border-radius: 5px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         h1 {
             color: #333;
+            margin-bottom: 20px;
         }
-        .menu-btn {
-            display: block;
+        input[type="password"] {
             width: 100%;
-            padding: 15px;
-            margin: 10px 0;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
             background-color: #4CAF50;
             color: white;
-            text-decoration: none;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
             border-radius: 4px;
-            font-size: 18px;
-            text-align: center;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
         }
-        .menu-btn:hover {
+        button:hover {
             background-color: #45a049;
         }
-        .logout-btn {
-            display: inline-block;
-            padding: 10px 20px;
+        .back-link {
+            display: block;
             margin-top: 20px;
-            background-color: #f44336;
-            color: white;
+            color: #2196F3;
             text-decoration: none;
-            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Меню заказов</h1>
-        
-        <a href="/products" class="menu-btn">Заказать продукты</a>
-        <a href="/hoz" class="menu-btn">Заказать хоз. товары</a>
-        <a href="/fish" class="menu-btn">Заказать рыбу</a>
-        
-        <a href="/logout" class="logout-btn">Выйти</a>
+        <h1>Вход в систему</h1>
+        <form action="/check_password" method="post">
+            <input type="password" name="password" placeholder="Введите пароль" required>
+            <button type="submit">Войти</button>
+        </form>
+        <a href="/" class="back-link">Вернуться на главную</a>
     </div>
 </body>
 </html>
