@@ -1,28 +1,60 @@
-{% extends "base.html" %}
-
-{% block title %}Главное меню{% endblock %}
-
-{% block content %}
-<h2>Главное меню</h2>
-<div class="menu-grid">
-    <div class="menu-item">
-        <h3>Продукты</h3>
-        <a href="{{ url_for('products') }}" class="button">Перейти</a>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Меню</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+        }
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 18px;
+            text-align: center;
+        }
+        .menu-btn:hover {
+            background-color: #45a049;
+        }
+        .logout-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin-top: 20px;
+            background-color: #f44336;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Меню заказов</h1>
+        
+        <a href="/products" class="menu-btn">Заказать продукты</a>
+        <a href="/hoz" class="menu-btn">Заказать хоз. товары</a>
+        <a href="/fish" class="menu-btn">Заказать рыбу</a>
+        
+        <a href="/logout" class="logout-btn">Выйти</a>
     </div>
-    <div class="menu-item">
-        <h3>Хоз. товары</h3>
-        <a href="{{ url_for('hoz') }}" class="button">Перейти</a>
-    </div>
-    <div class="menu-item">
-        <h3>Рыба</h3>
-        <a href="{{ url_for('fish') }}" class="button">Перейти</a>
-    </div>
-    <div class="menu-item">
-        <h3>Админ-панель</h3>
-        <a href="{{ url_for('admin') }}" class="button">Перейти</a>
-    </div>
-</div>
-<div style="margin-top: 20px; text-align: center;">
-    <a href="{{ url_for('logout') }}" class="button">Выйти</a>
-</div>
-{% endblock %}
+</body>
+</html>
