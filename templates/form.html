@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Заявка - {{ supplier }}</title>
+</head>
+<body>
+    <h2>Заявка - {{ supplier }}</h2>
+    <form method="post">
+        <label>Имя повара:</label><br>
+        <input type="text" name="filled_by" required><br><br>
+
+        <label>Дата, на которую заявка:</label><br>
+        <input type="date" name="for_date" required><br><br>
+
+        <label>Филиал:</label><br>
+        <input type="text" name="branch" required><br><br>
+
+        {% for item in items %}
+            <label>{{ item }}:</label>
+            <input type="text" name="{{ item }}"><br>
+        {% endfor %}
+
+        <br>
+        <button type="submit">Отправить</button>
+    </form>
+</body>
+</html>

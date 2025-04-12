@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Хоз. товары</title>
+</head>
+<body>
+    <h1>Выберите товар</h1>
+    <ul>
+        {% for item, unit in items.items() %}
+            <li>{{ item }} ({{ unit }})</li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('index') }}">Назад</a>
+</body>
+</html>

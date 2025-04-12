@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Заказ рыбы{% endblock %}
+
+{% block content %}
+<h2>Заказ рыбы</h2>
+<form method="post">
+    <div class="form-group">
+        <label>ФИО повара:</label>
+        <input type="text" name="name" required>
+    </div>
+    
+    <div class="form-group">
+        <label>Филиал:</label>
+        <input type="text" name="branch" required>
+    </div>
+    
+    <div class="form-group">
+        <label>Дата заполнения:</label>
+        <input type="date" name="date" required>
+    </div>
+    
+    <div class="form-group">
+        <label>Дата заявки:</label>
+        <input type="date" name="target_date" required>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Товар</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>{{ product }}</td>
+                <td>
+                    <input type="text" name="{{ product }}" class="quantity-input">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top: 20px;">
+        <button type="submit" name="send" value="1">Отправить заявку</button>
+        <a href="{{ url_for('menu') }}" class="button">Назад</a>
+    </div>
+</form>
+{% endblock %}
