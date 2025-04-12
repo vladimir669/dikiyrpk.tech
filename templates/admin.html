@@ -180,7 +180,6 @@
                 <div class="form-group">
                     <label for="product_name">Выберите продукт для удаления:</label>
                     <select id="product_name" name="product_name" required>
-                        {% for section, products in products_data.  name="product_name" required>
                         {% for section, products in products_data.items() %}
                             {% if loop.first %}
                                 {% for product in products %}
