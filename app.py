@@ -2,7 +2,15 @@ from flask import Flask, render_template, request, redirect, session, url_for
 import telebot
 import json
 import os
+import logging
 from datetime import datetime
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный секретный ключ
@@ -11,50 +19,86 @@ app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный сек
 BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
 GROUP_ID = '-1002633190524'
 
+# Определение путей для данных
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+PASSWORD_FILE = os.path.join(DATA_DIR, 'password.txt')
+ADMIN_PASSWORD_FILE = os.path.join(DATA_DIR, 'admin_password.txt')
+PRODUCTS_FILE = os.path.join(DATA_DIR, 'products.json')
+
 # Инициализация бота с обработкой ошибок
 try:
     bot = telebot.TeleBot(BOT_TOKEN)
-    print(f"Бот успешно инициализирован")
+    logger.info("Бот успешно инициализирован")
 except Exception as e:
-    print(f"Ошибка инициализации бота: {e}")
+    logger.error(f"Ошибка инициализации бота: {e}")
     bot = None
 
 # Создание необходимых директорий
 def ensure_directories():
-    if not os.path.exists('data'):
-        os.makedirs('data')
+    try:
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+            logger.info(f"Директория {DATA_DIR} успешно создана")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при создании директории {DATA_DIR}: {e}")
+        try:
+            # Попробуем создать в /tmp для Render
+            tmp_data_dir = os.path.join('/tmp', 'data')
+            if not os.path.exists(tmp_data_dir):
+                os.makedirs(tmp_data_dir)
+                logger.info(f"Создана альтернативная директория: {tmp_data_dir}")
+            global DATA_DIR, PASSWORD_FILE, ADMIN_PASSWORD_FILE, PRODUCTS_FILE
+            DATA_DIR = tmp_data_dir
+            PASSWORD_FILE = os.path.join(DATA_DIR, 'password.txt')
+            ADMIN_PASSWORD_FILE = os.path.join(DATA_DIR, 'admin_password.txt')
+            PRODUCTS_FILE = os.path.join(DATA_DIR, 'products.json')
+            return True
+        except Exception as e2:
+            logger.error(f"Не удалось создать альтернативную директорию: {e2}")
+            return False
 
 # Функция для безопасной отправки сообщений
 def safe_send_message(chat_id, text):
     if bot:
         try:
             message = bot.send_message(chat_id, text)
-            print(f"Сообщение успешно отправлено в чат {chat_id}")
+            logger.info(f"Сообщение успешно отправлено в чат {chat_id}")
             return message
         except Exception as e:
-            print(f"Ошибка отправки сообщения: {e}")
-            print(f"Текст сообщения: {text}")
+            logger.error(f"Ошибка отправки сообщения: {e}")
+            logger.debug(f"Текст сообщения: {text}")
     else:
-        print("Бот не инициализирован")
+        logger.warning("Бот не инициализирован")
 
 # Инициализация файлов с паролями
 def init_password_files():
-    if not os.path.exists('data/password.txt'):
-        with open('data/password.txt', 'w', encoding='utf-8') as f:
-            f.write('1234')
+    try:
+        if not os.path.exists(PASSWORD_FILE):
+            with open(PASSWORD_FILE, 'w', encoding='utf-8') as f:
+                f.write('1234')
+            logger.info(f"Создан файл с паролем пользователя: {PASSWORD_FILE}")
 
-    if not os.path.exists('data/admin_password.txt'):
-        with open('data/admin_password.txt', 'w', encoding='utf-8') as f:
-            f.write('admin')
+        if not os.path.exists(ADMIN_PASSWORD_FILE):
+            with open(ADMIN_PASSWORD_FILE, 'w', encoding='utf-8') as f:
+                f.write('admin')
+            logger.info(f"Создан файл с паролем администратора: {ADMIN_PASSWORD_FILE}")
+    except Exception as e:
+        logger.error(f"Ошибка инициализации файлов паролей: {e}")
 
 # Загрузка данных о продуктах
 def load_products_data():
     try:
-        if os.path.exists('data/products.json'):
-            with open('data/products.json', 'r', encoding='utf-8') as f:
-                return json.load(f)
+        if os.path.exists(PRODUCTS_FILE):
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"Данные о продуктах успешно загружены из {PRODUCTS_FILE}")
+                return data
     except Exception as e:
-        print(f"Ошибка загрузки products.json: {e}")
+        logger.error(f"Ошибка загрузки products.json: {e}")
+    
+    logger.info("Создание структуры данных по умолчанию")
     return create_default_products()
 
 # Создание структуры данных по умолчанию
@@ -129,14 +173,17 @@ def create_default_products():
 
 def save_products_data(data):
     try:
-        with open('data/products.json', 'w', encoding='utf-8') as f:
+        with open(PRODUCTS_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+        logger.info(f"Данные о продуктах успешно сохранены в {PRODUCTS_FILE}")
     except Exception as e:
-        print(f"Ошибка сохранения products.json: {e}")
+        logger.error(f"Ошибка сохранения products.json: {e}")
 
 # Инициализация необходимых файлов и папок
-ensure_directories()
-init_password_files()
+if ensure_directories():
+    init_password_files()
+else:
+    logger.critical("Не удалось создать необходимые директории. Приложение может работать некорректно.")
 
 @app.route('/')
 def login():
@@ -145,15 +192,18 @@ def login():
 @app.route('/check_password', methods=['POST'])
 def check_password():
     try:
-        with open('data/password.txt', 'r', encoding='utf-8') as f:
-            correct_password = f.read().strip()
-        
-        entered_password = request.form.get('password')
-        if entered_password == correct_password:
-            session['logged_in'] = True
-            return redirect('/menu')
+        if os.path.exists(PASSWORD_FILE):
+            with open(PASSWORD_FILE, 'r', encoding='utf-8') as f:
+                correct_password = f.read().strip()
+            
+            entered_password = request.form.get('password')
+            if entered_password == correct_password:
+                session['logged_in'] = True
+                return redirect('/menu')
+        else:
+            logger.warning(f"Файл с паролем не найден: {PASSWORD_FILE}")
     except Exception as e:
-        print(f"Ошибка проверки пароля: {e}")
+        logger.error(f"Ошибка проверки пароля: {e}")
     return redirect('/')
 
 @app.route('/logout')
@@ -205,7 +255,7 @@ def products():
             products = products_data[supplier]
             return render_template('products.html', supplier=supplier, products=products)
     
-    return render_template('products.html', supplier=None, suppliers=["Свит Лайф", "Рафт", "Оши"])
+    return render_template('products.html', supplier=None, suppliers=list(products_data.keys()))
 
 @app.route('/hoz', methods=['GET', 'POST'])
 def hoz():
@@ -239,7 +289,7 @@ def hoz():
             safe_send_message(GROUP_ID, message)
         return redirect('/menu')
     
-    return render_template('hoz.html', products=products_data["Хоз. товары"])
+    return render_template('hoz.html', products=products_data.get("Хоз. товары", []))
 
 @app.route('/fish', methods=['GET', 'POST'])
 def fish():
@@ -273,7 +323,7 @@ def fish():
             safe_send_message(GROUP_ID, message)
         return redirect('/menu')
     
-    return render_template('fish.html', products=products_data["Рыба"])
+    return render_template('fish.html', products=products_data.get("Рыба", []))
 
 @app.route('/admin')
 def admin():
@@ -286,15 +336,18 @@ def admin():
 def admin_login():
     if request.method == 'POST':
         try:
-            with open('data/admin_password.txt', 'r', encoding='utf-8') as f:
-                correct_password = f.read().strip()
-            
-            entered_password = request.form.get('password')
-            if entered_password == correct_password:
-                session['admin_logged_in'] = True
-                return redirect('/admin')
+            if os.path.exists(ADMIN_PASSWORD_FILE):
+                with open(ADMIN_PASSWORD_FILE, 'r', encoding='utf-8') as f:
+                    correct_password = f.read().strip()
+                
+                entered_password = request.form.get('password')
+                if entered_password == correct_password:
+                    session['admin_logged_in'] = True
+                    return redirect('/admin')
+            else:
+                logger.warning(f"Файл с паролем администратора не найден: {ADMIN_PASSWORD_FILE}")
         except Exception as e:
-            print(f"Ошибка входа в админ-панель: {e}")
+            logger.error(f"Ошибка входа в админ-панель: {e}")
         return redirect('/admin_login')
     return render_template('admin_login.html')
 
@@ -313,13 +366,15 @@ def change_password():
         new_password = request.form.get('new_password')
         
         if password_type == 'user':
-            with open('data/password.txt', 'w', encoding='utf-8') as f:
+            with open(PASSWORD_FILE, 'w', encoding='utf-8') as f:
                 f.write(new_password)
+            logger.info("Пароль пользователя успешно изменен")
         elif password_type == 'admin':
-            with open('data/admin_password.txt', 'w', encoding='utf-8') as f:
+            with open(ADMIN_PASSWORD_FILE, 'w', encoding='utf-8') as f:
                 f.write(new_password)
+            logger.info("Пароль администратора успешно изменен")
     except Exception as e:
-        print(f"Ошибка смены пароля: {e}")
+        logger.error(f"Ошибка смены пароля: {e}")
     
     return redirect('/admin')
 
@@ -335,8 +390,9 @@ def add_section():
         if section_name and section_name not in products_data:
             products_data[section_name] = []
             save_products_data(products_data)
+            logger.info(f"Добавлен новый раздел: {section_name}")
     except Exception as e:
-        print(f"Ошибка добавления раздела: {e}")
+        logger.error(f"Ошибка добавления раздела: {e}")
     
     return redirect('/admin')
 
@@ -352,8 +408,9 @@ def delete_section():
         if section_name in products_data:
             del products_data[section_name]
             save_products_data(products_data)
+            logger.info(f"Удален раздел: {section_name}")
     except Exception as e:
-        print(f"Ошибка удаления раздела: {e}")
+        logger.error(f"Ошибка удаления раздела: {e}")
     
     return redirect('/admin')
 
@@ -371,8 +428,9 @@ def add_product():
             if product_name not in products_data[section_name]:
                 products_data[section_name].append(product_name)
                 save_products_data(products_data)
+                logger.info(f"Добавлен товар '{product_name}' в раздел '{section_name}'")
     except Exception as e:
-        print(f"Ошибка добавления товара: {e}")
+        logger.error(f"Ошибка добавления товара: {e}")
     
     return redirect('/admin')
 
@@ -389,11 +447,13 @@ def delete_product():
         if section_name in products_data and product_name in products_data[section_name]:
             products_data[section_name].remove(product_name)
             save_products_data(products_data)
+            logger.info(f"Удален товар '{product_name}' из раздела '{section_name}'")
     except Exception as e:
-        print(f"Ошибка удаления товара: {e}")
+        logger.error(f"Ошибка удаления товара: {e}")
     
     return redirect('/admin')
 
 # Запуск приложения
 if __name__ == '__main__':
-    app.run()
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
