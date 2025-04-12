@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, url_for, jsonify
+from flask_session import Session  # Добавлено для работы с сессиями
 import os
 import logging
 import json
@@ -11,21 +12,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный секретный ключ
-
-# Настройки Telegram бота
-BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
-GROUP_ID = '-1002633190524'
-
 # Определение путей для данных
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join('/tmp', 'data')  # Используем /tmp для Render
+DATA_DIR = os.path.join(BASE_DIR, 'data')  # Храним данные в подкаталоге приложения
 PASSWORD_FILE = os.path.join(DATA_DIR, 'password.txt')
 ADMIN_PASSWORD_FILE = os.path.join(DATA_DIR, 'admin_password.txt')
 PRODUCTS_FILE = os.path.join(DATA_DIR, 'products.json')
 HOZ_FILE = os.path.join(DATA_DIR, 'hoz.json')
 FISH_FILE = os.path.join(DATA_DIR, 'fish.json')
+
+app = Flask(__name__)
+app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный секретный ключ
+# Добавляем настройки для сессий
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_FILE_DIR'] = os.path.join(BASE_DIR, 'flask_session')
+Session(app)  # Инициализация Flask-Session
+
+# Настройки Telegram бота
+BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
+GROUP_ID = '-1002633190524'
 
 # Создание необходимых директорий
 def ensure_directories():
@@ -33,6 +40,13 @@ def ensure_directories():
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)
             logger.info(f"Директория {DATA_DIR} успешно создана")
+        
+        # Добавляем отладочную информацию
+        logger.info(f"Путь DATA_DIR: {DATA_DIR}")
+        logger.info(f"DATA_DIR существует: {os.path.exists(DATA_DIR)}")
+        logger.info(f"Путь PASSWORD_FILE: {PASSWORD_FILE}")
+        logger.info(f"PASSWORD_FILE существует: {os.path.exists(PASSWORD_FILE)}")
+        
         return True
     except Exception as e:
         logger.error(f"Ошибка при создании директории {DATA_DIR}: {e}")
@@ -241,18 +255,40 @@ def login():
 @app.route('/check_password', methods=['POST'])
 def check_password():
     try:
+        entered_password = request.form.get('password')
+        logger.info(f"Попытка входа с паролем: {entered_password}")
+        
         if os.path.exists(PASSWORD_FILE):
             with open(PASSWORD_FILE, 'r', encoding='utf-8') as f:
                 correct_password = f.read().strip()
             
-            entered_password = request.form.get('password')
+            logger.info(f"Правильный пароль из файла: {correct_password}")
+            
             if entered_password == correct_password:
                 session['logged_in'] = True
+                logger.info("Вход успешен, перенаправление на /menu")
                 return redirect('/menu')
+            else:
+                logger.info("Неверный пароль")
         else:
             logger.warning(f"Файл с паролем не найден: {PASSWORD_FILE}")
+            # Пробуем пересоздать файл с паролем
+            init_password_files()
+            logger.info("Попытка пересоздать файлы паролей")
+            
+            # Проверяем, создался ли файл
+            if os.path.exists(PASSWORD_FILE):
+                with open(PASSWORD_FILE, 'r', encoding='utf-8') as f:
+                    correct_password = f.read().strip()
+                
+                if entered_password == correct_password:
+                    session['logged_in'] = True
+                    logger.info("Вход успешен после пересоздания файла, перенаправление на /menu")
+                    return redirect('/menu')
     except Exception as e:
         logger.error(f"Ошибка проверки пароля: {e}")
+    
+    logger.info("Вход не удался, перенаправление на /login")
     return redirect('/login')
 
 @app.route('/logout')
