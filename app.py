@@ -77,13 +77,17 @@ def init_password_files():
     try:
         if not os.path.exists(PASSWORD_FILE):
             with open(PASSWORD_FILE, 'w', encoding='utf-8') as f:
-                f.write('1234')
+                f.write('4444')  # Используем пароль из вашего файла
             logger.info(f"Создан файл с паролем пользователя: {PASSWORD_FILE}")
+        else:
+            logger.info(f"Файл с паролем пользователя уже существует: {PASSWORD_FILE}")
 
         if not os.path.exists(ADMIN_PASSWORD_FILE):
             with open(ADMIN_PASSWORD_FILE, 'w', encoding='utf-8') as f:
-                f.write('admin')
+                f.write('880088')  # Используем пароль из вашего файла
             logger.info(f"Создан файл с паролем администратора: {ADMIN_PASSWORD_FILE}")
+        else:
+            logger.info(f"Файл с паролем администратора уже существует: {ADMIN_PASSWORD_FILE}")
     except Exception as e:
         logger.error(f"Ошибка инициализации файлов паролей: {e}")
 
@@ -184,6 +188,34 @@ if ensure_directories():
     init_password_files()
 else:
     logger.critical("Не удалось создать необходимые директории. Приложение может работать некорректно.")
+
+# Копирование JSON файлов в директорию данных
+def copy_json_files():
+    try:
+        # Проверяем, существуют ли исходные файлы в корневой директории
+        source_files = {
+            'products.json': os.path.join(BASE_DIR, 'products.json'),
+            'hoz.json': os.path.join(BASE_DIR, 'hoz.json'),
+            'fish.json': os.path.join(BASE_DIR, 'fish.json')
+        }
+        
+        for name, source_path in source_files.items():
+            if os.path.exists(source_path):
+                target_path = os.path.join(DATA_DIR, name)
+                # Если файл в директории данных не существует, копируем его
+                if not os.path.exists(target_path):
+                    with open(source_path, 'r', encoding='utf-8') as source_file:
+                        data = json.load(source_file)
+                    
+                    with open(target_path, 'w', encoding='utf-8') as target_file:
+                        json.dump(data, target_file, ensure_ascii=False, indent=4)
+                    
+                    logger.info(f"Файл {name} успешно скопирован в директорию данных")
+    except Exception as e:
+        logger.error(f"Ошибка при копировании JSON файлов: {e}")
+
+# Пытаемся скопировать JSON файлы при запуске
+copy_json_files()
 
 @app.route('/')
 def login():
@@ -289,14 +321,42 @@ def hoz():
             safe_send_message(GROUP_ID, message)
         return redirect('/menu')
     
-    return render_template('hoz.html', products=products_data.get("Хоз. товары", []))
+    # Пытаемся загрузить хоз. товары из отдельного файла
+    hoz_products = []
+    try:
+        hoz_file = os.path.join(DATA_DIR, 'hoz.json')
+        if os.path.exists(hoz_file):
+            with open(hoz_file, 'r', encoding='utf-8') as f:
+                hoz_products = json.load(f)
+    except Exception as e:
+        logger.error(f"Ошибка загрузки hoz.json: {e}")
+        # Используем данные из основного файла
+        hoz_products = products_data.get("Хоз. товары", [])
+    
+    return render_template('hoz.html', products=hoz_products)
 
 @app.route('/fish', methods=['GET', 'POST'])
 def fish():
     if not session.get('logged_in'):
         return redirect('/')
     
-    products_data = load_products_data()
+    # Пытаемся загрузить рыбу из отдельного файла
+    fish_products = []
+    try:
+        fish_file = os.path.join(DATA_DIR, 'fish.json')
+        if os.path.exists(fish_file):
+            with open(fish_file, 'r', encoding='utf-8') as f:
+                fish_data = json.load(f)
+                # Проверяем структуру данных
+                if isinstance(fish_data, dict) and "Рыба" in fish_data:
+                    fish_products = fish_data["Рыба"]
+                else:
+                    fish_products = list(fish_data.values())[0] if fish_data else []
+    except Exception as e:
+        logger.error(f"Ошибка загрузки fish.json: {e}")
+        # Используем данные из основного файла
+        products_data = load_products_data()
+        fish_products = products_data.get("Рыба", [])
     
     if request.method == 'POST':
         name = request.form.get('name', '')
@@ -323,7 +383,7 @@ def fish():
             safe_send_message(GROUP_ID, message)
         return redirect('/menu')
     
-    return render_template('fish.html', products=products_data.get("Рыба", []))
+    return render_template('fish.html', products=fish_products)
 
 @app.route('/admin')
 def admin():
