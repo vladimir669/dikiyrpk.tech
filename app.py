@@ -1,181 +1,191 @@
+from flask import Flask, render_template, request, redirect, session, url_for, jsonify
 import os
-import json
 import logging
-import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-import requests
+import json
+from datetime import datetime
+import telebot
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "devkey")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Секретный ключ
 
-DB_PATH = 'data.db'
-DATA_DIR = '/tmp/data'
-PRODUCTS_PATH = os.path.join(DATA_DIR, 'products.json')
+# Настройки Telegram бота
+BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
+GROUP_ID = '-1002633190524'
 
-os.makedirs(DATA_DIR, exist_ok=True)
+# Определение путей для данных
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join('/tmp', 'data')  # Для Render
+PASSWORD_FILE = os.path.join(DATA_DIR, 'password.txt')
+ADMIN_PASSWORD_FILE = os.path.join(DATA_DIR, 'admin_password.txt')
+PRODUCTS_FILE = os.path.join(DATA_DIR, 'products.json')
+HOZ_FILE = os.path.join(DATA_DIR, 'hoz.json')
+FISH_FILE = os.path.join(DATA_DIR, 'fish.json')
 
-# === База данных ===
-def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE,
-                password TEXT
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            )
-        ''')
-        conn.commit()
-        cursor.execute("INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)", ('admin', 'adminpass'))
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", ('telegram_token', 'YOUR_BOT_TOKEN'))
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", ('telegram_chat_id', '-4707270576'))
-        conn.commit()
+# Создание необходимых директорий
+def ensure_directories():
+    try:
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+            logger.info(f"Директория {DATA_DIR} успешно создана")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при создании директории {DATA_DIR}: {e}")
+        return False
 
-def get_setting(key):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
-        result = cursor.fetchone()
-        return result[0] if result else None
+# Функция для безопасной отправки сообщений в Telegram
+def safe_send_message(chat_id, text):
+    try:
+        bot = telebot.TeleBot(BOT_TOKEN)
+        message = bot.send_message(chat_id, text)
+        logger.info(f"Сообщение успешно отправлено в чат {chat_id}")
+        return message
+    except Exception as e:
+        logger.error(f"Ошибка отправки сообщения: {e}")
+        return None
 
-def set_setting(key, value):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
-        conn.commit()
+# Инициализация файлов с паролями
+def init_password_files():
+    try:
+        if not os.path.exists(PASSWORD_FILE):
+            with open(PASSWORD_FILE, 'w', encoding='utf-8') as f:
+                f.write('4444')
+            logger.info(f"Создан файл с паролем пользователя: {PASSWORD_FILE}")
 
-# === Работа с файлами ===
-def save_products(data):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(PRODUCTS_PATH, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    logging.info("Данные о продуктах успешно сохранены в %s", PRODUCTS_PATH)
+        if not os.path.exists(ADMIN_PASSWORD_FILE):
+            with open(ADMIN_PASSWORD_FILE, 'w', encoding='utf-8') as f:
+                f.write('880088')
+            logger.info(f"Создан файл с паролем администратора: {ADMIN_PASSWORD_FILE}")
+    except Exception as e:
+        logger.error(f"Ошибка инициализации файлов паролей: {e}")
 
-def load_products():
-    if not os.path.exists(PRODUCTS_PATH):
-        data = {
-            "Свит Лайф": ["Шоколад", "Конфеты", "Вафли"],
-            "Рафт": ["Молоко", "Сметана", "Йогурт"],
-            "Оши": ["Рис", "Соевый соус", "Нори"]
-        }
-        save_products(data)
-    with open(PRODUCTS_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+# Создание структуры данных по умолчанию для продуктов
+def create_default_products():
+    default_data = {
+        "Свит Лайф": [
+            "Сыр полутвердый Моцарелла Пицца 40% Bonfesio Cooking 2.6кг",
+            "Сыр Пармезан 9 Месяцев ЮКМП Цилиндр 45% 6-6.5кг",
+            "Сыр \"Hochland\" плавленный ломтевой Бистро Чеддер 1.107кг (90 ломтиков)",
+            "Крабовое мясо Снежный краб охл. (имитация из сурими) VICI 500гр",
+            "Креветки б/г в панцире с/м Empacadora Bibo SA Эквадор 16/20 1кг",
+            "Майонез классический SoPro 67% 9.6кг",
+            "Соус Ореховый (кунжутный) Smart Chef 1л",
+            "Соус Шрирача 0.815кг Uni-Eagle",
+            "Соус Соевый classic Smart Chef 20л",
+            "Кетчуп Smart Chef Томатный 2кг Балк",
+            "Соус Smart Chef Сырный 1кг",
+            "Соус Цезарь Астория 1кг",
+            "Палочки Сырные Фрост-а Моцарелла в Панировке Замороженные 1кг",
+            "Сухари Панировочные Smart Chef Панко Голд 4мм 1кг",
+            "Имбирь Маринованный белый 1кг",
+            "Водоросли цветные желтые (сухие) Мамэ нори 80гр*20л",
+            "Водоросли цветные розовые (сухие) Мамэ нори 80гр*20л",
+            "Масло Подсолнечное Smart Chef для фритюра 5л",
+            "Мука пшеничная Царица Кубанская Высший Сорт 5кг",
+            "Сахарный песок сумка Россия 5кг",
+            "Порошок Васаби Tamaki 2кг"
+        ],
+        "Рафт": [
+            "Масаго красная Санта-бремор",
+            "Масаго черная Санта-бремор",
+            "Масаго оранжевая Санта-бремор",
+            "Водоросли Нори 100 листов, 240 г/уп, 72шт/кор, 17,28 кг/кор, Россия",
+            "Соус Чили-манго \"Food Service\", 1кг, 6 шт/кор, 10415806, Гурмикс, Россия",
+            "Картофельные дольки в кожуре со специями, уп. 0,9кг, замороженный, 9кг/кор, Tayyebat, Ливан",
+            "Кунжутное семя обжаренное белое 1 кг, 15 шт/кор, СКМ, Россия",
+            "Лук жареный 1 кг, 10 шт/кор, Нидерланды",
+            "Сыр творожный Cream cheese 69% м.д.ж, 2,5кг, BeChef, БелСыр",
+            "Луковые кольца",
+            "Нагетсы серволюкс"
+        ],
+        "Оши": [
+            "Угорь жаренный Унаги ТЕХ (в уп 10%)",
+            "Тунец филе \"Елоу Фин\" Премиум",
+            "Соус Унаги OSHI 1.8л",
+            "Соус Кимчи 1.8л OSHI",
+            "Картофель Фри Брусок 9*9 2.5кг*5, Lamb Weston",
+            "Рис в/с Россия 25кг",
+            "Уксус Рисовый OSHI 20л пр-во Космос"
+        ]
+    }
+    save_products_data(default_data)
+    return default_data
 
-# === Авторизация ===
-def check_user(username, password):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
-        result = cursor.fetchone()
-        return result and result[0] == password
+# Загрузка данных о продуктах
+def load_products_data():
+    try:
+        if os.path.exists(PRODUCTS_FILE):
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"Данные о продуктах успешно загружены из {PRODUCTS_FILE}")
+                return data
+    except Exception as e:
+        logger.error(f"Ошибка загрузки products.json: {e}")
+    
+    logger.info("Создание структуры данных по умолчанию")
+    return create_default_products()
 
-# === Telegram ===
-def send_to_telegram(message):
-    token = get_setting("telegram_token")
-    chat_id = get_setting("telegram_chat_id")
-    if token and chat_id:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        payload = {"chat_id": chat_id, "text": message}
-        requests.post(url, json=payload)
-    else:
-        logging.warning("Токен или chat_id Telegram не установлен!")
+# Функция сохранения данных о продуктах
+def save_products_data(data):
+    try:
+        with open(PRODUCTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        logger.info(f"Данные о продуктах успешно сохранены в {PRODUCTS_FILE}")
+    except Exception as e:
+        logger.error(f"Ошибка сохранения products.json: {e}")
 
-# === Маршруты ===
+# Инициализация необходимых файлов и папок
+ensure_directories()
+init_password_files()
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/menu')
-def menu():
-    return render_template('menu.html')
-
-@app.route('/login', methods=['GET'])
-def login_page():
+@app.route('/login')
+def login():
     return render_template('login.html')
 
 @app.route('/check_password', methods=['POST'])
 def check_password():
-    password = request.form['password']
-    if check_user('user', password):
-        session['user'] = 'user'
-        return redirect(url_for('menu'))
-    flash("Неверный пароль")
-    return redirect(url_for('login_page'))
-
-@app.route('/admin_login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        if check_user(username, password):
-            session['admin'] = username
-            return redirect(url_for('admin_panel'))
-        flash("Неверный логин или пароль")
-    return render_template('admin_login.html')
-
-@app.route('/admin')
-def admin_panel():
-    if 'admin' not in session:
-        return redirect(url_for('admin_login'))
-    products = load_products()
-    return render_template('admin.html', products=products)
-
-@app.route('/admin_logout')
-def admin_logout():
-    session.pop('admin', None)
-    return redirect(url_for('index'))
-
-@app.route('/change_password', methods=['POST'])
-def change_password():
-    if 'admin' not in session:
-        return redirect(url_for('admin_login'))
-    new_pass = request.form['new_password']
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("UPDATE users SET password = ? WHERE username = 'admin'", (new_pass,))
-        conn.commit()
-    logging.info("Пароль пользователя успешно изменен")
-    return redirect(url_for('admin_panel'))
-
-@app.route('/update_products', methods=['POST'])
-def update_products():
-    if 'admin' not in session:
-        return redirect(url_for('admin_login'))
-    data = request.form.get('products')
     try:
-        save_products(json.loads(data))
+        if os.path.exists(PASSWORD_FILE):
+            with open(PASSWORD_FILE, 'r', encoding='utf-8') as f:
+                correct_password = f.read().strip()
+            
+            entered_password = request.form.get('password')
+            if entered_password == correct_password:
+                session['logged_in'] = True
+                return redirect('/menu')
+        else:
+            logger.warning(f"Файл с паролем не найден: {PASSWORD_FILE}")
     except Exception as e:
-        logging.error("Ошибка при сохранении: %s", e)
-        flash("Ошибка в JSON")
-    return redirect(url_for('admin_panel'))
+        logger.error(f"Ошибка проверки пароля: {e}")
+    return redirect('/login')
 
-@app.route('/submit_request', methods=['POST'])
-def submit_request():
-    supplier = request.form['supplier']
-    chef_name = request.form['chef_name']
-    order_date = request.form['order_date']
-    completion_date = request.form['completion_date']
-    branch = request.form['branch']
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect('/')
 
-    items = []
-    for key, value in request.form.items():
-        if key.startswith('product_') and value:
-            item_name = key.replace('product_', '')
-            items.append(f"{item_name}: {value} г")
+@app.route('/menu')
+def menu():
+    if not session.get('logged_in'):
+        return redirect('/login')
+    return render_template('menu.html')
 
-    message = f"📦 *Заявка от повара*\n🍽️ Повар: {chef_name}\n🏢 Филиал: {branch}\n🗓️ Дата заказа: {order_date}\n🕐 Срок исполнения: {completion_date}\n📚 Поставщик: {supplier}\n\n" + "\n".join(items)
-    send_to_telegram(message)
-    return redirect(url_for('menu'))
-
-# === Инициализация ===
-if __name__ == '__main__':
-    init_db()
-    load_products()
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+@app.route('/products', methods=['GET', 'POST'])
+def products():
+    if not session.get('logged_in'):
+        return redirect('/login')
+    
+    products_data = load_products_data()
+    
+    if request.method == 'POST':
+        supplier = request.form
