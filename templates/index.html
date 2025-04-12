@@ -9,6 +9,7 @@
             margin: 0;
             padding: 20px;
             text-align: center;
+            background-color: #f5f5f5;
         }
         .container {
             max-width: 600px;
@@ -16,33 +17,55 @@
             padding: 20px;
             border: 1px solid #ddd;
             border-radius: 5px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         h1 {
             color: #333;
+            margin-bottom: 20px;
         }
         .btn {
             display: inline-block;
-            padding: 10px 20px;
+            padding: 12px 24px;
             margin: 10px 0;
             background-color: #4CAF50;
             color: white;
             text-decoration: none;
             border-radius: 4px;
             font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #45a049;
         }
         .test-btn {
             background-color: #2196F3;
+        }
+        .test-btn:hover {
+            background-color: #0b7dda;
+        }
+        .admin-btn {
+            background-color: #ff9800;
+        }
+        .admin-btn:hover {
+            background-color: #e68a00;
+        }
+        .logo {
+            max-width: 150px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Система заказов</h1>
-        <p>Приложение работает! Используйте кнопки ниже для навигации.</p>
+        <p>Добро пожаловать в систему заказов продуктов и товаров. Используйте кнопки ниже для навигации.</p>
         
         <a href="/login" class="btn">Войти в систему</a>
         <br>
         <a href="/test_telegram" class="btn test-btn">Проверить Telegram бота</a>
+        <br>
+        <a href="/admin_login" class="btn admin-btn">Панель администратора</a>
     </div>
 </body>
 </html>
