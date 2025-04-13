@@ -1,71 +1,21 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Система заказов</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            margin: 10px 0;
-            background-color: #4CAF50;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        .btn:hover {
-            background-color: #45a049;
-        }
-        .test-btn {
-            background-color: #2196F3;
-        }
-        .test-btn:hover {
-            background-color: #0b7dda;
-        }
-        .admin-btn {
-            background-color: #ff9800;
-        }
-        .admin-btn:hover {
-            background-color: #e68a00;
-        }
-        .logo {
-            max-width: 150px;
-            margin-bottom: 20px;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Система заказа продуктов</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Система заказов</h1>
-        <p>Добро пожаловать в систему заказов продуктов и товаров. Используйте кнопки ниже для навигации.</p>
-        
-        <a href="/login" class="btn">Войти в систему</a>
-        <br>
-        <a href="/test_telegram" class="btn test-btn">Проверить Telegram бота</a>
-        <br>
-        <a href="/admin_login" class="btn admin-btn">Панель администратора</a>
+        <h1>Система заказа продуктов</h1>
+        <div class="menu-buttons">
+            <a href="{{ url_for('login') }}" class="btn">Войти в меню</a>
+            <a href="{{ url_for('hoz') }}" class="btn">Хоз. товары</a>
+            <a href="{{ url_for('fish') }}" class="btn">Рыба</a>
+            <a href="{{ url_for('chicken') }}" class="btn">Курица</a>
+            <a href="{{ url_for('admin_login') }}" class="btn btn-secondary">Админ-панель</a>
+        </div>
     </div>
 </body>
 </html>
