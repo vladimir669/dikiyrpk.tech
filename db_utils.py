@@ -1,166 +1,85 @@
 import os
-import logging
 import json
-import psycopg2
-import psycopg2.extras
+import logging
 
 # Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
-# Данные для подключения к Supabase PostgreSQL
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# Определение путей для данных
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')  # Храним данные в подкаталоге приложения
+PASSWORD_FILE = os.path.join(DATA_DIR, 'password.txt')
+ADMIN_PASSWORD_FILE = os.path.join(DATA_DIR, 'admin_password.txt')
+PRODUCTS_FILE = os.path.join(DATA_DIR, 'products.json')
+HOZ_FILE = os.path.join(DATA_DIR, 'hoz.json')
+FISH_FILE = os.path.join(DATA_DIR, 'fish.json')
 
 def init_db():
-    """Инициализация базы данных"""
+    """Инициализация базы данных (файловой структуры)"""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
+        # Создаем директорию для данных, если она не существует
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+            logger.info(f"Директория {DATA_DIR} успешно создана")
         
-        # Создаем таблицу для продуктов
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS products (
-            section TEXT,
-            product TEXT
-        )
-        ''')
+        # Инициализация файлов с паролями
+        if not os.path.exists(PASSWORD_FILE):
+            with open(PASSWORD_FILE, 'w', encoding='utf-8') as f:
+                f.write('4444')
+            logger.info(f"Создан файл с паролем пользователя: {PASSWORD_FILE}")
+
+        if not os.path.exists(ADMIN_PASSWORD_FILE):
+            with open(ADMIN_PASSWORD_FILE, 'w', encoding='utf-8') as f:
+                f.write('880088')
+            logger.info(f"Создан файл с паролем администратора: {ADMIN_PASSWORD_FILE}")
         
-        # Создаем таблицу для хоз. товаров
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS hoz (
-            product TEXT
-        )
-        ''')
+        # Инициализация файлов с данными
+        if not os.path.exists(PRODUCTS_FILE):
+            create_default_products()
         
-        # Создаем таблицу для рыбы
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS fish (
-            product TEXT
-        )
-        ''')
+        if not os.path.exists(HOZ_FILE):
+            create_default_hoz()
         
-        # Создаем таблицу для паролей
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS passwords (
-            type TEXT PRIMARY KEY,
-            password TEXT
-        )
-        ''')
-        
-        # Проверяем, есть ли пароли в базе
-        cur.execute("SELECT COUNT(*) FROM passwords")
-        count = cur.fetchone()[0]
-        
-        # Если паролей нет, добавляем по умолчанию
-        if count == 0:
-            cur.execute("INSERT INTO passwords (type, password) VALUES (%s, %s)", ('user', '4444'))
-            cur.execute("INSERT INTO passwords (type, password) VALUES (%s, %s)", ('admin', '880088'))
-        
-        conn.commit()
-        conn.close()
-        logger.info("База данных успешно инициализирована")
+        if not os.path.exists(FISH_FILE):
+            create_default_fish()
+            
         return True
     except Exception as e:
         logger.error(f"Ошибка инициализации базы данных: {e}")
         return False
 
 def get_password(password_type):
-    """Получение пароля из базы данных"""
+    """Получение пароля из файла"""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        cur.execute("SELECT password FROM passwords WHERE type = %s", (password_type,))
-        result = cur.fetchone()
-        
-        conn.close()
-        
-        if result:
-            return result[0]
-        return None
+        file_path = ADMIN_PASSWORD_FILE if password_type == 'admin' else PASSWORD_FILE
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        else:
+            logger.warning(f"Файл с паролем не найден: {file_path}")
+            # Пробуем пересоздать файл с паролем
+            init_db()
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read().strip()
     except Exception as e:
         logger.error(f"Ошибка получения пароля: {e}")
-        return None
+    return None
 
 def set_password(password_type, new_password):
-    """Изменение пароля в базе данных"""
+    """Установка нового пароля"""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        cur.execute("UPDATE passwords SET password = %s WHERE type = %s", 
-                   (new_password, password_type))
-        
-        conn.commit()
-        conn.close()
-        logger.info(f"Пароль типа {password_type} успешно обновлен")
+        file_path = ADMIN_PASSWORD_FILE if password_type == 'admin' else PASSWORD_FILE
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(new_password)
+        logger.info(f"Пароль {password_type} успешно изменен")
         return True
     except Exception as e:
-        logger.error(f"Ошибка обновления пароля: {e}")
-        return False
-
-def load_products_data():
-    """Загрузка данных о продуктах из базы данных"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Проверяем, есть ли данные в таблице
-        cur.execute("SELECT COUNT(*) FROM products")
-        count = cur.fetchone()[0]
-        
-        # Если данных нет, создаем структуру по умолчанию
-        if count == 0:
-            default_data = create_default_products()
-            return default_data
-        
-        # Получаем все уникальные разделы
-        cur.execute("SELECT DISTINCT section FROM products")
-        sections = [row[0] for row in cur.fetchall()]
-        
-        data = {}
-        for section in sections:
-            # Получаем все продукты для раздела
-            cur.execute("SELECT product FROM products WHERE section = %s", (section,))
-            products = [row[0] for row in cur.fetchall()]
-            data[section] = products
-        
-        conn.close()
-        logger.info("Данные о продуктах успешно загружены из БД")
-        return data
-    except Exception as e:
-        logger.error(f"Ошибка загрузки данных из БД: {e}")
-        # В случае ошибки возвращаем данные по умолчанию
-        return create_default_products()
-
-def save_products_data(data):
-    """Сохранение данных о продуктах в базу данных"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Удаляем все существующие данные
-        cur.execute("DELETE FROM products")
-        
-        # Добавляем новые данные
-        for section, products in data.items():
-            for product in products:
-                cur.execute("INSERT INTO products (section, product) VALUES (%s, %s)", 
-                           (section, product))
-        
-        conn.commit()
-        conn.close()
-        logger.info("Данные о продуктах успешно сохранены в БД")
-        return True
-    except Exception as e:
-        logger.error(f"Ошибка сохранения данных в БД: {e}")
+        logger.error(f"Ошибка установки пароля: {e}")
         return False
 
 def create_default_products():
-    """Создание структуры данных по умолчанию и сохранение в БД"""
+    """Создание структуры данных по умолчанию"""
     default_data = {
         "Свит Лайф": [
             "Сыр полутвердый Моцарелла Пицца 40% Bonfesio Cooking 2.6кг",
@@ -226,36 +145,11 @@ def create_default_products():
             "Тунец филе охл."
         ]
     }
-    
     save_products_data(default_data)
     return default_data
 
-def load_hoz_data():
-    """Загрузка данных о хоз. товарах из базы данных"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Проверяем, есть ли данные
-        cur.execute("SELECT COUNT(*) FROM hoz")
-        count = cur.fetchone()[0]
-        
-        if count == 0:
-            default_hoz = create_default_hoz()
-            return default_hoz
-        
-        cur.execute("SELECT product FROM hoz")
-        products = [row[0] for row in cur.fetchall()]
-        
-        conn.close()
-        logger.info("Данные о хоз. товарах успешно загружены из БД")
-        return products
-    except Exception as e:
-        logger.error(f"Ошибка загрузки хоз. товаров из БД: {e}")
-        return create_default_hoz()
-
 def create_default_hoz():
-    """Создание хоз. товаров по умолчанию и сохранение в БД"""
+    """Создание хоз. товаров по умолчанию"""
     default_hoz = [
         "Мешки для мусора",
         "Салфетки",
@@ -273,69 +167,76 @@ def create_default_hoz():
         "Салатник ECO OpSalad 220х160х55 дно чёрное 1000мл + крышка (1/300)",
         "Контейнер 1000мл ЧЕРНЫЙ 15020055 (50/300) — ONECLICK BOTTON 1000/bBLACK"
     ]
-    
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Удаляем все существующие данные
-        cur.execute("DELETE FROM hoz")
-        
-        # Добавляем новые данные
-        for product in default_hoz:
-            cur.execute("INSERT INTO hoz (product) VALUES (%s)", (product,))
-        
-        conn.commit()
-        conn.close()
-        logger.info("Данные о хоз. товарах успешно сохранены в БД")
+        with open(HOZ_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_hoz, f, ensure_ascii=False, indent=4)
+        logger.info(f"Данные о хоз. товарах успешно сохранены в {HOZ_FILE}")
     except Exception as e:
-        logger.error(f"Ошибка сохранения хоз. товаров в БД: {e}")
-    
+        logger.error(f"Ошибка сохранения hoz.json: {e}")
     return default_hoz
 
-def load_fish_data():
-    """Загрузка данных о рыбе из базы данных"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Проверяем, есть ли данные
-        cur.execute("SELECT COUNT(*) FROM fish")
-        count = cur.fetchone()[0]
-        
-        if count == 0:
-            default_fish = create_default_fish()
-            return default_fish
-        
-        cur.execute("SELECT product FROM fish")
-        products = [row[0] for row in cur.fetchall()]
-        
-        conn.close()
-        logger.info("Данные о рыбе успешно загружены из БД")
-        return products
-    except Exception as e:
-        logger.error(f"Ошибка загрузки рыбы из БД: {e}")
-        return create_default_fish()
-
 def create_default_fish():
-    """Создание рыбы по умолчанию и сохранение в БД"""
+    """Создание рыбы по умолчанию"""
     default_fish = ["Филе форели охл.", "Лосось атлантический охл.", "Тунец филе охл."]
-    
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        # Удаляем все существующие данные
-        cur.execute("DELETE FROM fish")
-        
-        # Добавляем новые данные
-        for product in default_fish:
-            cur.execute("INSERT INTO fish (product) VALUES (%s)", (product,))
-        
-        conn.commit()
-        conn.close()
-        logger.info("Данные о рыбе успешно сохранены в БД")
+        with open(FISH_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"Рыба": default_fish}, f, ensure_ascii=False, indent=4)
+        logger.info(f"Данные о рыбе успешно сохранены в {FISH_FILE}")
     except Exception as e:
-        logger.error(f"Ошибка сохранения рыбы в БД: {e}")
-    
+        logger.error(f"Ошибка сохранения fish.json: {e}")
     return default_fish
+
+def load_products_data():
+    """Загрузка данных о продуктах"""
+    try:
+        if os.path.exists(PRODUCTS_FILE):
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"Данные о продуктах успешно загружены из {PRODUCTS_FILE}")
+                return data
+    except Exception as e:
+        logger.error(f"Ошибка загрузки products.json: {e}")
+    
+    logger.info("Создание структуры данных по умолчанию")
+    return create_default_products()
+
+def save_products_data(data):
+    """Сохранение данных о продуктах"""
+    try:
+        with open(PRODUCTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        logger.info(f"Данные о продуктах успешно сохранены в {PRODUCTS_FILE}")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка сохранения products.json: {e}")
+        return False
+
+def load_hoz_data():
+    """Загрузка данных о хоз. товарах"""
+    try:
+        if os.path.exists(HOZ_FILE):
+            with open(HOZ_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"Данные о хоз. товарах успешно загружены из {HOZ_FILE}")
+                return data
+    except Exception as e:
+        logger.error(f"Ошибка загрузки hoz.json: {e}")
+    
+    logger.info("Создание хоз. товаров по умолчанию")
+    return create_default_hoz()
+
+def load_fish_data():
+    """Загрузка данных о рыбе"""
+    try:
+        if os.path.exists(FISH_FILE):
+            with open(FISH_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"Данные о рыбе успешно загружены из {FISH_FILE}")
+                if isinstance(data, dict) and "Рыба" in data:
+                    return data["Рыба"]
+                return list(data.values())[0] if isinstance(data, dict) else data
+    except Exception as e:
+        logger.error(f"Ошибка загрузки fish.json: {e}")
+    
+    logger.info("Создание рыбы по умолчанию")
+    return create_default_fish()
