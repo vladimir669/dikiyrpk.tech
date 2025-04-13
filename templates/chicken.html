@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Курица</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Курица</h1>
+        
+        <div class="order-section">
+            <div class="order-list">
+                <h2>Выбранные товары:</h2>
+                <ul id="selected-items"></ul>
+                <button id="send-order" class="btn">Отправить заказ</button>
+                <button id="clear-order" class="btn btn-secondary">Очистить</button>
+            </div>
+        </div>
+        
+        <div class="products-section">
+            <h2>Доступные товары:</h2>
+            <ul class="products-list">
+                {% for item in chicken_items %}
+                <li>
+                    <span class="product-name">{{ item }}</span>
+                    <button class="add-btn" data-product="{{ item }}">+</button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="navigation">
+            <a href="{{ url_for('menu') }}" class="btn">Назад к меню</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выйти</a>
+        </div>
+    </div>
+    
+    <div id="notification" class="notification"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Загружаем сохраненные товары из localStorage
+            let selectedItems = JSON.parse(localStorage.getItem('selectedItems')) || [];
+            updateSelectedItemsList();
+            
+            // Добавление товара в список
+            document.querySelectorAll('.add-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const productName = this.getAttribute('data-product');
+                    selectedItems.push(productName);
+                    localStorage.setItem('selectedItems', JSON.stringify(selectedItems));
+                    updateSelectedItemsList();
+                    showNotification('Товар добавлен в заказ');
+                });
+            });
+            
+            // Отправка заказа
+            document.getElementById('send-order').addEventListener('click', function() {
+                if (selectedItems.length === 0) {
+                    showNotification('Добавьте товары в заказ');
+                    return;
+                }
+                
+                fetch('/order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        items: selectedItems
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Заказ успешно отправлен');
+                        selectedItems = [];
+                        localStorage.setItem('selectedItems', JSON.stringify(selectedItems));
+                        updateSelectedItemsList();
+                    } else {
+                        showNotification('Ошибка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    showNotification('Ошибка отправки заказа');
+                    console.error('Error:', error);
+                });
+            });
+            
+            // Очистка заказа
+            document.getElementById('clear-order').addEventListener('click', function() {
+                selectedItems = [];
+                localStorage.setItem('selectedItems', JSON.stringify(selectedItems));
+                updateSelectedItemsList();
+                showNotification('Заказ очищен');
+            });
+            
+            // Обновление списка выбранных товаров
+            function updateSelectedItemsList() {
+                const selectedItemsList = document.getElementById('selected-items');
+                selectedItemsList.innerHTML = '';
+                
+                selectedItems.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span class="item-name">${item}</span>
+                        <button class="remove-btn" data-index="${index}">×</button>
+                    `;
+                    selectedItemsList.appendChild(li);
+                });
+                
+                // Добавляем обработчики для кнопок удаления
+                document.querySelectorAll('.remove-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        selectedItems.splice(index, 1);
+                        localStorage.setItem('selectedItems', JSON.stringify(selectedItems));
+                        updateSelectedItemsList();
+                    });
+                });
+            }
+            
+            // Показ уведомления
+            function showNotification(message) {
+                const notification = document.getElementById('notification');
+                notification.textContent = message;
+                notification.classList.add('show');
+                
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
