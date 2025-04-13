@@ -4,10 +4,12 @@ import os
 import logging
 import json
 from datetime import datetime
-from db_env import (
+from db_supabase import (
     init_db, get_password, set_password, 
     load_products_data, save_products_data,
-    load_hoz_data, load_fish_data
+    load_hoz_data, save_hoz_data,
+    load_fish_data, save_fish_data,
+    load_chicken_data, save_chicken_data
 )
 
 # Настройка логирования
@@ -19,7 +21,9 @@ logger = logging.getLogger(__name__)
 
 # Определение путей для данных
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join('/tmp', 'data')  # Используем /tmp для Render
+DATA_DIR = '/tmp/persistent'
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
 
 app = Flask(__name__)
 app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный секретный ключ
@@ -27,7 +31,7 @@ app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный сек
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_FILE_DIR'] = os.path.join('/tmp', 'flask_session')
+app.config['SESSION_FILE_DIR'] = os.path.join(DATA_DIR, 'flask_session')
 Session(app)  # Инициализация Flask-Session
 
 # Настройки Telegram бота
@@ -37,12 +41,8 @@ GROUP_ID = '-1002633190524'
 # Создание необходимых директорий
 def ensure_directories():
     try:
-        if not os.path.exists(DATA_DIR):
-            os.makedirs(DATA_DIR)
-            logger.info(f"Директория {DATA_DIR} успешно создана")
-        
         # Создаем директорию для сессий
-        session_dir = os.path.join('/tmp', 'flask_session')
+        session_dir = os.path.join(DATA_DIR, 'flask_session')
         if not os.path.exists(session_dir):
             os.makedirs(session_dir)
             logger.info(f"Директория {session_dir} успешно создана")
@@ -65,292 +65,274 @@ def safe_send_message(chat_id, text):
         logger.error(f"Ошибка отправки сообщения: {e}")
         return None
 
+# Инициализация базы данных при запуске
+@app.before_first_request
+def initialize():
+    ensure_directories()
+    init_db()
+    
+    # Принудительное обновление данных
+    products_data = create_default_products()
+    save_products_data(products_data)
+    
+    hoz_data = create_default_hoz()
+    save_hoz_data(hoz_data)
+    
+    fish_data = create_default_fish()
+    save_fish_data(fish_data)
+    
+    chicken_data = create_default_chicken()
+    save_chicken_data(chicken_data)
+    
+    logger.info("Данные успешно обновлены")
+
+# Главная страница
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/login')
+# Страница входа
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    return render_template('login.html')
-
-@app.route('/check_password', methods=['POST'])
-def check_password():
-    try:
-        entered_password = request.form.get('password')
-        logger.info(f"Попытка входа с паролем: {entered_password}")
-        
+    if request.method == 'POST':
+        password = request.form.get('password')
         correct_password = get_password('user')
         
-        if correct_password and entered_password == correct_password:
+        if password == correct_password:
             session['logged_in'] = True
-            logger.info("Вход успешен, перенаправление на /menu")
-            return redirect('/menu')
+            return redirect(url_for('menu'))
         else:
-            logger.info("Неверный пароль")
-    except Exception as e:
-        logger.error(f"Ошибка проверки пароля: {e}")
+            return render_template('login.html', error='Неверный пароль')
     
-    logger.info("Вход не удался, перенаправление на /login")
-    return redirect('/login')
+    return render_template('login.html')
 
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    return redirect('/')
-
+# Страница меню
 @app.route('/menu')
 def menu():
     if not session.get('logged_in'):
-        return redirect('/login')
-    return render_template('menu.html')
+        return redirect(url_for('login'))
+    
+    products = load_products_data()
+    return render_template('menu.html', products=products)
 
-@app.route('/products', methods=['GET', 'POST'])
-def products():
-    if not session.get('logged_in'):
-        return redirect('/login')
-    
-    products_data = load_products_data()
-    
-    if request.method == 'POST':
-        supplier = request.form.get('supplier')
-        name = request.form.get('name', '')
-        date = request.form.get('date', '')
-        target_date = request.form.get('target_date', '')
-        branch = request.form.get('branch', '')
-        
-        if request.form.get('send'):
-            items = []
-            for key in request.form:
-                if key not in ['supplier', 'name', 'date', 'target_date', 'branch', 'send']:
-                    value = request.form.get(key)
-                    if value and value.strip():
-                        items.append(f"🔹 {key}: {value}")
-            
-            if items:
-                message = (
-                    f"📦 {supplier}\n"
-                    f"🏢 Филиал: {branch}\n"
-                    f"👨‍🍳 Повар: {name}\n"
-                    f"📅 Дата заявки: {target_date}\n"
-                    f"📝 Дата заполнения: {date}\n\n" +
-                    "\n".join(items)
-                )
-                safe_send_message(GROUP_ID, message)
-            return redirect('/menu')
-        
-        if supplier in products_data:
-            products = products_data[supplier]
-            return render_template('products.html', supplier=supplier, products=products)
-    
-    return render_template('products.html', supplier=None, suppliers=list(products_data.keys()))
-
-@app.route('/hoz', methods=['GET', 'POST'])
+# Страница хоз. товаров
+@app.route('/hoz')
 def hoz():
     if not session.get('logged_in'):
-        return redirect('/login')
+        return redirect(url_for('login'))
     
-    hoz_products = load_hoz_data()
-    
-    if request.method == 'POST':
-        name = request.form.get('name', '')
-        date = request.form.get('date', '')
-        target_date = request.form.get('target_date', '')
-        branch = request.form.get('branch', '')
-        
-        items = []
-        for key in request.form:
-            if key not in ['name', 'date', 'target_date', 'branch', 'send']:
-                value = request.form.get(key)
-                if value and value.strip():
-                    items.append(f"🔹 {key}: {value}")
-        
-        if items:
-            message = (
-                f"🧹 Хоз. товары\n"
-                f"🏢 Филиал: {branch}\n"
-                f"👨‍🍳 Повар: {name}\n"
-                f"📅 Дата заявки: {target_date}\n"
-                f"📝 Дата заполнения: {date}\n\n" +
-                "\n".join(items)
-            )
-            safe_send_message(GROUP_ID, message)
-        return redirect('/menu')
-    
-    return render_template('hoz.html', products=hoz_products)
+    hoz_items = load_hoz_data()
+    return render_template('hoz.html', hoz_items=hoz_items)
 
-@app.route('/fish', methods=['GET', 'POST'])
+# Страница рыбы
+@app.route('/fish')
 def fish():
     if not session.get('logged_in'):
-        return redirect('/login')
+        return redirect(url_for('login'))
     
-    fish_products = load_fish_data()
-    
-    if request.method == 'POST':
-        name = request.form.get('name', '')
-        date = request.form.get('date', '')
-        target_date = request.form.get('target_date', '')
-        branch = request.form.get('branch', '')
-        
-        items = []
-        for key in request.form:
-            if key not in ['name', 'date', 'target_date', 'branch', 'send']:
-                value = request.form.get(key)
-                if value and value.strip():
-                    items.append(f"🔹 {key}: {value}")
-        
-        if items:
-            message = (
-                f"🐟 Рыба\n"
-                f"🏢 Филиал: {branch}\n"
-                f"👨‍🍳 Повар: {name}\n"
-                f"📅 Дата заявки: {target_date}\n"
-                f"📝 Дата заполнения: {date}\n\n" +
-                "\n".join(items)
-            )
-            safe_send_message(GROUP_ID, message)
-        return redirect('/menu')
-    
-    return render_template('fish.html', products=fish_products)
+    fish_items = load_fish_data()
+    return render_template('fish.html', fish_items=fish_items)
 
-@app.route('/admin_login', methods=['GET', 'POST'])
+# Страница курицы
+@app.route('/chicken')
+def chicken():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    chicken_items = load_chicken_data()
+    return render_template('chicken.html', chicken_items=chicken_items)
+
+# Обработка заказа
+@app.route('/order', methods=['POST'])
+def order():
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+    
+    try:
+        data = request.get_json()
+        order_items = data.get('items', [])
+        
+        if not order_items:
+            return jsonify({'success': False, 'message': 'Пустой заказ'})
+        
+        # Формируем текст сообщения
+        now = datetime.now()
+        message_text = f"Новый заказ от {now.strftime('%d.%m.%Y %H:%M')}\n\n"
+        
+        for item in order_items:
+            message_text += f"• {item}\n"
+        
+        # Отправляем сообщение в Telegram
+        result = safe_send_message(GROUP_ID, message_text)
+        
+        if result:
+            return jsonify({'success': True, 'message': 'Заказ успешно отправлен'})
+        else:
+            return jsonify({'success': False, 'message': 'Ошибка отправки заказа'})
+    
+    except Exception as e:
+        logger.error(f"Ошибка обработки заказа: {e}")
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+# Страница входа в админку
+@app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        try:
-            correct_password = get_password('admin')
-            
-            entered_password = request.form.get('password')
-            if correct_password and entered_password == correct_password:
-                session['admin_logged_in'] = True
-                return redirect('/admin')
-        except Exception as e:
-            logger.error(f"Ошибка входа в админ-панель: {e}")
-        return redirect('/admin_login')
+        password = request.form.get('password')
+        correct_password = get_password('admin')
+        
+        if password == correct_password:
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin_panel'))
+        else:
+            return render_template('admin_login.html', error='Неверный пароль')
+    
     return render_template('admin_login.html')
 
+# Админ-панель
 @app.route('/admin')
-def admin():
+def admin_panel():
     if not session.get('admin_logged_in'):
-        return redirect('/admin_login')
-    products_data = load_products_data()
-    return render_template('admin.html', products_data=products_data)
+        return redirect(url_for('admin_login'))
+    
+    products = load_products_data()
+    hoz_items = load_hoz_data()
+    fish_items = load_fish_data()
+    chicken_items = load_chicken_data()
+    
+    return render_template('admin.html', 
+                          products=products, 
+                          hoz_items=hoz_items,
+                          fish_items=fish_items,
+                          chicken_items=chicken_items)
 
-@app.route('/admin_logout')
+# API для обновления продуктов
+@app.route('/api/products', methods=['POST'])
+def update_products():
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+    
+    try:
+        data = request.get_json()
+        products = data.get('products', {})
+        
+        if not products:
+            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
+        
+        # Сохраняем обновленные данные
+        save_products_data(products)
+        
+        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
+    
+    except Exception as e:
+        logger.error(f"Ошибка обновления продуктов: {e}")
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+# API для обновления хоз. товаров
+@app.route('/api/hoz', methods=['POST'])
+def update_hoz():
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+    
+    try:
+        data = request.get_json()
+        hoz_items = data.get('hoz_items', [])
+        
+        if not hoz_items:
+            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
+        
+        # Сохраняем обновленные данные
+        save_hoz_data(hoz_items)
+        
+        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
+    
+    except Exception as e:
+        logger.error(f"Ошибка обновления хоз. товаров: {e}")
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+# API для обновления рыбы
+@app.route('/api/fish', methods=['POST'])
+def update_fish():
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+    
+    try:
+        data = request.get_json()
+        fish_items = data.get('fish_items', [])
+        
+        if not fish_items:
+            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
+        
+        # Сохраняем обновленные данные
+        save_fish_data(fish_items)
+        
+        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
+    
+    except Exception as e:
+        logger.error(f"Ошибка обновления рыбы: {e}")
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+# API для обновления курицы
+@app.route('/api/chicken', methods=['POST'])
+def update_chicken():
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+    
+    try:
+        data = request.get_json()
+        chicken_items = data.get('chicken_items', [])
+        
+        if not chicken_items:
+            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
+        
+        # Сохраняем обновленные данные
+        save_chicken_data(chicken_items)
+        
+        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
+    
+    except Exception as e:
+        logger.error(f"Ошибка обновления курицы: {e}")
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+# API для изменения пароля
+@app.route('/api/password', methods=['POST'])
+def update_password():
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+    
+    try:
+        data = request.get_json()
+        password_type = data.get('type')
+        new_password = data.get('password')
+        
+        if not password_type or not new_password:
+            return jsonify({'success': False, 'message': 'Неверные параметры'})
+        
+        # Проверяем тип пароля
+        if password_type not in ['user', 'admin']:
+            return jsonify({'success': False, 'message': 'Неверный тип пароля'})
+        
+        # Сохраняем новый пароль
+        set_password(password_type, new_password)
+        
+        return jsonify({'success': True, 'message': 'Пароль успешно изменен'})
+    
+    except Exception as e:
+        logger.error(f"Ошибка изменения пароля: {e}")
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+
+# Выход из системы
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('index'))
+
+# Выход из админки
+@app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_logged_in', None)
-    return redirect('/')
+    return redirect(url_for('index'))
 
-@app.route('/change_password', methods=['POST'])
-def change_password():
-    if not session.get('admin_logged_in'):
-        return redirect('/admin_login')
-    
-    try:
-        password_type = request.form.get('password_type')
-        new_password = request.form.get('new_password')
-        
-        if password_type == 'user':
-            set_password('user', new_password)
-            logger.info("Пароль пользователя успешно изменен")
-        elif password_type == 'admin':
-            set_password('admin', new_password)
-            logger.info("Пароль администратора успешно изменен")
-    except Exception as e:
-        logger.error(f"Ошибка смены пароля: {e}")
-    
-    return redirect('/admin')
-
-@app.route('/add_section', methods=['POST'])
-def add_section():
-    if not session.get('admin_logged_in'):
-        return redirect('/admin_login')
-    
-    try:
-        section_name = request.form.get('section_name')
-        products_data = load_products_data()
-        
-        if section_name and section_name not in products_data:
-            products_data[section_name] = []
-            save_products_data(products_data)
-            logger.info(f"Добавлен новый раздел: {section_name}")
-    except Exception as e:
-        logger.error(f"Ошибка добавления раздела: {e}")
-    
-    return redirect('/admin')
-
-@app.route('/delete_section', methods=['POST'])
-def delete_section():
-    if not session.get('admin_logged_in'):
-        return redirect('/admin_login')
-    
-    try:
-        section_name = request.form.get('section_name')
-        products_data = load_products_data()
-        
-        if section_name in products_data:
-            del products_data[section_name]
-            save_products_data(products_data)
-            logger.info(f"Удален раздел: {section_name}")
-    except Exception as e:
-        logger.error(f"Ошибка удаления раздела: {e}")
-    
-    return redirect('/admin')
-
-@app.route('/add_product', methods=['POST'])
-def add_product():
-    if not session.get('admin_logged_in'):
-        return redirect('/admin_login')
-    
-    try:
-        section_name = request.form.get('section_name')
-        product_name = request.form.get('product_name')
-        products_data = load_products_data()
-        
-        if section_name in products_data and product_name:
-            if product_name not in products_data[section_name]:
-                products_data[section_name].append(product_name)
-                save_products_data(products_data)
-                logger.info(f"Добавлен товар '{product_name}' в раздел '{section_name}'")
-    except Exception as e:
-        logger.error(f"Ошибка добавления товара: {e}")
-    
-    return redirect('/admin')
-
-@app.route('/delete_product', methods=['POST'])
-def delete_product():
-    if not session.get('admin_logged_in'):
-        return redirect('/admin_login')
-    
-    try:
-        section_name = request.form.get('section_name')
-        product_name = request.form.get('product_name')
-        products_data = load_products_data()
-        
-        if section_name in products_data and product_name in products_data[section_name]:
-            products_data[section_name].remove(product_name)
-            save_products_data(products_data)
-            logger.info(f"Удален товар '{product_name}' из раздела '{section_name}'")
-    except Exception as e:
-        logger.error(f"Ошибка удаления товара: {e}")
-    
-    return redirect('/admin')
-
-@app.route('/test_telegram')
-def test_telegram():
-    try:
-        result = safe_send_message(GROUP_ID, "Тестовое сообщение с Render")
-        if result:
-            return "Сообщение успешно отправлено в Telegram!"
-        else:
-            return "Ошибка отправки сообщения. Проверьте логи."
-    except Exception as e:
-        logger.error(f"Ошибка в test_telegram: {e}")
-        return f"Произошла ошибка: {str(e)}"
-
-# Инициализация необходимых директорий и базы данных
-ensure_directories()
-init_db()
-
-# Запуск приложения
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
