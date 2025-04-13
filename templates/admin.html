@@ -1,249 +1,72 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Панель администратора</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 {
-            color: #333;
-            text-align: center;
-        }
-        .section {
-            margin-bottom: 30px;
-            padding: 15px;
-            border: 1px solid #eee;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"], input[type="password"], select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            margin: 5px 0;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        .btn:hover {
-            background-color: #45a049;
-        }
-        .btn-delete {
-            background-color: #f44336;
-        }
-        .btn-delete:hover {
-            background-color: #d32f2f;
-        }
-        .btn-add {
-            background-color: #2196F3;
-        }
-        .btn-add:hover {
-            background-color: #0b7dda;
-        }
-        .logout-btn {
-            display: inline-block;
-            padding: 10px 20px;
-            margin-top: 20px;
-            background-color: #f44336;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        .logout-btn:hover {
-            background-color: #d32f2f;
-        }
-        .product-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 10px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: white;
-        }
-        .product-item {
-            padding: 8px;
-            margin-bottom: 5px;
-            border-bottom: 1px solid #eee;
-        }
-        .product-item:last-child {
-            border-bottom: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Панель администратора</h1>
-        
-        <div class="section">
-            <h2>Изменение паролей</h2>
-            <form action="/change_password" method="post">
-                <div class="form-group">
-                    <label for="password_type">Тип пароля:</label>
-                    <select id="password_type" name="password_type" required>
-                        <option value="user">Пароль пользователя</option>
-                        <option value="admin">Пароль администратора</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="new_password">Новый пароль:</label>
-                    <input type="password" id="new_password" name="new_password" required>
-                </div>
-                <button type="submit" class="btn">Изменить пароль</button>
-            </form>
+<!-- Добавьте этот раздел в admin.html после раздела с рыбой -->
+<div class="admin-section">
+    <h2>Управление курицей</h2>
+    <div class="admin-items" id="chicken-items">
+        {% for item in chicken_items %}
+        <div class="admin-item">
+            <input type="text" value="{{ item }}" class="item-input">
+            <button class="remove-item-btn">Удалить</button>
         </div>
-        
-        <div class="section">
-            <h2>Управление разделами</h2>
-            <form action="/add_section" method="post">
-                <div class="form-group">
-                    <label for="section_name">Название нового раздела:</label>
-                    <input type="text" id="section_name" name="section_name" required>
-                </div>
-                <button type="submit" class="btn btn-add">Добавить раздел</button>
-            </form>
-            
-            <form action="/delete_section" method="post" style="margin-top: 15px;">
-                <div class="form-group">
-                    <label for="section_name">Выберите раздел для удаления:</label>
-                    <select id="section_name" name="section_name" required>
-                        {% for section in products_data %}
-                            <option value="{{ section }}">{{ section }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-delete">Удалить раздел</button>
-            </form>
-        </div>
-        
-        <div class="section">
-            <h2>Управление продуктами</h2>
-            <form action="/add_product" method="post">
-                <div class="form-group">
-                    <label for="section_name">Выберите раздел:</label>
-                    <select id="section_name" name="section_name" required>
-                        {% for section in products_data %}
-                            <option value="{{ section }}">{{ section }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="product_name">Название нового продукта:</label>
-                    <input type="text" id="product_name" name="product_name" required>
-                </div>
-                <button type="submit" class="btn btn-add">Добавить продукт</button>
-            </form>
-            
-            <form action="/delete_product" method="post" style="margin-top: 15px;">
-                <div class="form-group">
-                    <label for="section_name">Выберите раздел:</label>
-                    <select id="section_name" name="section_name" onchange="updateProductList()" required>
-                        {% for section in products_data %}
-                            <option value="{{ section }}">{{ section }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="product_name">Выберите продукт для удаления:</label>
-                    <select id="product_name" name="product_name" required>
-                        {% for section, products in products_data.items() %}
-                            {% if loop.first %}
-                                {% for product in products %}
-                                    <option value="{{ product }}">{{ product }}</option>
-                                {% endfor %}
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-delete">Удалить продукт</button>
-            </form>
-        </div>
-        
-        <div class="section">
-            <h2>Текущие продукты</h2>
-            {% for section, products in products_data.items() %}
-                <h3>{{ section }}</h3>
-                <div class="product-list">
-                    {% for product in products %}
-                        <div class="product-item">{{ product }}</div>
-                    {% endfor %}
-                </div>
-            {% endfor %}
-        </div>
-        
-        <a href="/admin_logout" class="logout-btn">Выйти</a>
+        {% endfor %}
     </div>
-    
-    <script>
-        // Функция для обновления списка продуктов при выборе раздела
-        function updateProductList() {
-            var sectionSelect = document.querySelector('form[action="/delete_product"] select[name="section_name"]');
-            var productSelect = document.querySelector('form[action="/delete_product"] select[name="product_name"]');
-            var selectedSection = sectionSelect.value;
-            
-            // Очищаем текущий список продуктов
-            productSelect.innerHTML = '';
-            
-            // Получаем продукты для выбранного раздела
-            var products = {
-                {% for section, products in products_data.items() %}
-                    "{{ section }}": [
-                        {% for product in products %}
-                            "{{ product }}"{% if not loop.last %},{% endif %}
-                        {% endfor %}
-                    ]{% if not loop.last %},{% endif %}
-                {% endfor %}
-            };
-            
-            // Добавляем продукты в выпадающий список
-            if (products[selectedSection]) {
-                products[selectedSection].forEach(function(product) {
-                    var option = document.createElement('option');
-                    option.value = product;
-                    option.textContent = product;
-                    productSelect.appendChild(option);
-                });
-            }
-        }
+    <button id="add-chicken-btn" class="btn">Добавить товар</button>
+    <button id="save-chicken-btn" class="btn">Сохранить изменения</button>
+</div>
+
+<!-- Добавьте этот JavaScript код в конец файла -->
+<script>
+    // Код для управления курицей
+    document.getElementById('add-chicken-btn').addEventListener('click', function() {
+        const chickenItems = document.getElementById('chicken-items');
+        const newItem = document.createElement('div');
+        newItem.className = 'admin-item';
+        newItem.innerHTML = `
+            <input type="text" value="" class="item-input">
+            <button class="remove-item-btn">Удалить</button>
+        `;
+        chickenItems.appendChild(newItem);
         
-        // Вызываем функцию при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            updateProductList();
+        // Добавляем обработчик для новой кнопки удаления
+        newItem.querySelector('.remove-item-btn').addEventListener('click', function() {
+            this.parentElement.remove();
         });
-    </script>
-</body>
-</html>
+    });
+    
+    document.getElementById('save-chicken-btn').addEventListener('click', function() {
+        const chickenItems = [];
+        document.querySelectorAll('#chicken-items .item-input').forEach(input => {
+            if (input.value.trim() !== '') {
+                chickenItems.push(input.value.trim());
+            }
+        });
+        
+        fetch('/api/chicken', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                chicken_items: chickenItems
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Данные о курице успешно обновлены');
+            } else {
+                showNotification('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            showNotification('Ошибка обновления данных');
+            console.error('Error:', error);
+        });
+    });
+    
+    // Добавляем обработчики для существующих кнопок удаления
+    document.querySelectorAll('#chicken-items .remove-item-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            this.parentElement.remove();
+        });
+    });
+</script>
