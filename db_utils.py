@@ -106,7 +106,9 @@ def create_default_products():
             "Масло Подсолнечное Smart Chef для фритюра 5л",
             "Мука пшеничная Царица Кубанская Высший Сорт 5кг",
             "Сахарный песок сумка Россия 5кг",
-            "Порошок Васаби Tamaki 2кг"
+            "Порошок Васаби Tamaki 2кг",
+            "Имбирь белый маринованный Premium Fujin Китай 1.4кг",
+            "Сыр Кремчиз Cooking 11кг"
         ],
         "Рафт": [
             "Масаго красная Санта-бремор",
@@ -117,9 +119,8 @@ def create_default_products():
             "Картофельные дольки в кожуре со специями, уп. 0,9кг, замороженный, 9кг/кор, Tayyebat, Ливан",
             "Кунжутное семя обжаренное белое 1 кг, 15 шт/кор, СКМ, Россия",
             "Лук жареный 1 кг, 10 шт/кор, Нидерланды",
-            "Сыр творожный Cream cheese 69% м.д.ж, 2,5кг, BeChef, БелСыр",
-            "Луковые кольца",
-            "Нагетсы серволюкс"
+            "Нагетсы серволюкс",
+            "Луковые кольца в панировке (формованые) зам.уп 0,908 кг, 8шт/кор., 7,264 кг/кор, Baby Star, Китай"
         ],
         "Оши": [
             "Угорь жаренный Унаги ТЕХ (в уп 10%)",
@@ -174,6 +175,20 @@ def create_default_products():
             "Тунец филе охл."
         ]
     }
+    
+    # Проверяем, существует ли файл с данными
+    if os.path.exists(PRODUCTS_FILE):
+        try:
+            # Если файл существует, загружаем данные из него
+            with open(PRODUCTS_FILE, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+                logger.info(f"Загружены существующие данные из {PRODUCTS_FILE}")
+                
+                # Используем существующие данные вместо значений по умолчанию
+                default_data = existing_data
+        except Exception as e:
+            logger.error(f"Ошибка загрузки существующих данных: {e}")
+    
     save_products_data(default_data)
     return default_data
 
@@ -228,6 +243,25 @@ def create_default_hoz():
 def create_default_fish():
     """Создание рыбы по умолчанию"""
     default_fish = ["Филе форели охл.", "Лосось атлантический охл.", "Тунец филе охл."]
+    
+    # Проверяем, существует ли файл с данными
+    if os.path.exists(FISH_FILE):
+        try:
+            # Если файл существует, загружаем данные из него
+            with open(FISH_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"Загружены существующие данные из {FISH_FILE}")
+                
+                # Извлекаем список рыбы из существующих данных
+                if isinstance(data, dict) and "Рыба" in data:
+                    default_fish = data["Рыба"]
+                elif isinstance(data, list):
+                    default_fish = data
+                else:
+                    default_fish = list(data.values())[0] if isinstance(data, dict) else data
+        except Exception as e:
+            logger.error(f"Ошибка загрузки существующих данных о рыбе: {e}")
+    
     try:
         with open(FISH_FILE, 'w', encoding='utf-8') as f:
             json.dump({"Рыба": default_fish}, f, ensure_ascii=False, indent=4)
