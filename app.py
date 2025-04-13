@@ -4,7 +4,7 @@ import os
 import logging
 import json
 from datetime import datetime
-from db_utils import (
+from db_env import (
     init_db, get_password, set_password, 
     load_products_data, save_products_data,
     load_hoz_data, load_fish_data
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Определение путей для данных
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, 'data')  # Храним данные в подкаталоге приложения
+DATA_DIR = os.path.join('/tmp', 'data')  # Используем /tmp для Render
 
 app = Flask(__name__)
 app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный секретный ключ
@@ -27,7 +27,7 @@ app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный сек
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_FILE_DIR'] = os.path.join(BASE_DIR, 'flask_session')
+app.config['SESSION_FILE_DIR'] = os.path.join('/tmp', 'flask_session')
 Session(app)  # Инициализация Flask-Session
 
 # Настройки Telegram бота
@@ -42,7 +42,7 @@ def ensure_directories():
             logger.info(f"Директория {DATA_DIR} успешно создана")
         
         # Создаем директорию для сессий
-        session_dir = os.path.join(BASE_DIR, 'flask_session')
+        session_dir = os.path.join('/tmp', 'flask_session')
         if not os.path.exists(session_dir):
             os.makedirs(session_dir)
             logger.info(f"Директория {session_dir} успешно создана")
