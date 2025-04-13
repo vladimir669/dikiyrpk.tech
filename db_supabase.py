@@ -7,8 +7,8 @@ from supabase import create_client, Client
 logger = logging.getLogger(__name__)
 
 # Настройки Supabase
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://your-supabase-url.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-key")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://postgresql://postgres:[vovik46304]@db.wxlrektensoxrnwipsbs.supabase.co:5432/postgres")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "DATABASE_URL")
 
 # Инициализация клиента Supabase
 try:
