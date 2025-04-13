@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Настройки Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://wxlrektensoxrnwipsbs.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4bHJla3RlbnNveHJud2lwc2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NTQ5NzQsImV4cCI6MjA2MDEzMDk3NH0.IdDbVJs6hnieO7h94TfVKbRqOaqltgRu3oexKzPHPQs")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4bHJla3RlbnNveHJud2lwc2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDU1NDk3NCwiZXhwIjoyMDYwMTMwOTc0fQ.45X6uk_ZfNvwLjmBOum2s3JZnm6KehUvImzzec0iWMc")
 
 # Инициализация клиента Supabase
 try:
