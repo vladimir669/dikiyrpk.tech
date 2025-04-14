@@ -1,16 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Вход{% endblock %}
+{% block title %}Вход в админ-панель{% endblock %}
 
 {% block content %}
 <div class="login-container">
-    <h2>Вход в систему</h2>
-    <form method="post" action="{{ url_for('check_password') }}">
+    <h2>Вход в админ-панель</h2>
+    <form method="post" action="{{ url_for('admin_login') }}">
         <div class="form-group">
-            <label for="password">Пароль:</label>
+            <label for="password">Пароль администратора:</label>
             <input type="password" id="password" name="password" required>
         </div>
         <button type="submit">Войти</button>
     </form>
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="{{ url_for('menu') }}" class="button">Назад</a>
+    </div>
 </div>
 {% endblock %}
