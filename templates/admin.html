@@ -1,230 +1,171 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Админ-панель | Система заказов{% endblock %}
-
-{% block header %}Админ-панель{% endblock %}
+{% block title %}Админ-панель{% endblock %}
 
 {% block content %}
-<div class="admin-panel">
-    <div class="admin-section">
-        <h3>Продукты</h3>
-        <div class="admin-form">
-            <textarea id="productsData">{{ products|tojson }}</textarea>
-            <button id="saveProducts">Сохранить</button>
+<h2>Админ-панель</h2>
+
+<div class="admin-section">
+    <h3>Изменить пароли</h3>
+    <form method="post" action="{{ url_for('change_password') }}">
+        <div class="form-group">
+            <label>Тип пароля:</label>
+            <select name="password_type" required>
+                <option value="user">Пользовательский</option>
+                <option value="admin">Администраторский</option>
+            </select>
         </div>
-    </div>
-    
-    <div class="admin-section">
-        <h3>Хоз. товары</h3>
-        <div class="admin-form">
-            <textarea id="hozData">{{ hoz_items|tojson }}</textarea>
-            <button id="saveHoz">Сохранить</button>
+        <div class="form-group">
+            <label>Новый пароль:</label>
+            <input type="password" name="new_password" required>
         </div>
-    </div>
-    
-    <div class="admin-section">
-        <h3>Рыба</h3>
-        <div class="admin-form">
-            <textarea id="fishData">{{ fish_items|tojson }}</textarea>
-            <button id="saveFish">Сохранить</button>
+        <button type="submit">Изменить пароль</button>
+    </form>
+</div>
+
+<div class="admin-section">
+    <h3>Управление разделами</h3>
+    <div class="admin-grid">
+        <div class="admin-card">
+            <h4>Добавить раздел</h4>
+            <form method="post" action="{{ url_for('add_section') }}">
+                <div class="form-group">
+                    <label>Название раздела:</label>
+                    <input type="text" name="section_name" required>
+                </div>
+                <button type="submit">Добавить</button>
+            </form>
         </div>
-    </div>
-    
-    <div class="admin-section">
-        <h3>Курица</h3>
-        <div class="admin-form">
-            <textarea id="chickenData">{{ chicken_items|tojson }}</textarea>
-            <button id="saveChicken">Сохранить</button>
-        </div>
-    </div>
-    
-    <div class="admin-section">
-        <h3>Пароли</h3>
-        <div class="admin-form">
-            <div class="form-group">
-                <label for="userPassword">Пароль пользователя:</label>
-                <input type="text" id="userPassword" value="4444">
-            </div>
-            <div class="form-group">
-                <label for="adminPassword">Пароль администратора:</label>
-                <input type="text" id="adminPassword" value="880088">
-            </div>
-            <button id="savePasswords">Сохранить</button>
+        
+        <div class="admin-card">
+            <h4>Удалить раздел</h4>
+            <form method="post" action="{{ url_for('delete_section') }}">
+                <div class="form-group">
+                    <label>Выберите раздел:</label>
+                    <select name="section_name" required>
+                        {% for section in products_data %}
+                        <option value="{{ section }}">{{ section }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit">Удалить</button>
+            </form>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block script %}
-// Сохранение продуктов
-document.getElementById('saveProducts').addEventListener('click', function() {
-    try {
-        var productsData = JSON.parse(document.getElementById('productsData').value);
+<div class="admin-section">
+    <h3>Управление товарами</h3>
+    <div class="admin-grid">
+        <div class="admin-card">
+            <h4>Добавить товар</h4>
+            <form method="post" action="{{ url_for('add_product') }}">
+                <div class="form-group">
+                    <label>Выберите раздел:</label>
+                    <select name="section_name" required>
+                        {% for section in products_data %}
+                        <option value="{{ section }}">{{ section }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Название товара:</label>
+                    <input type="text" name="product_name" required>
+                </div>
+                <button type="submit">Добавить</button>
+            </form>
+        </div>
         
-        fetch('/api/products', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                products: productsData
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Продукты успешно обновлены');
-            } else {
-                alert('Ошибка: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Ошибка:', error);
-            alert('Произошла ошибка при обновлении продуктов');
-        });
-    } catch (e) {
-        alert('Ошибка в формате данных: ' + e.message);
-    }
-});
+        <div class="admin-card">
+            <h4>Удалить товар</h4>
+            <form method="post" action="{{ url_for('delete_product') }}">
+                <div class="form-group">
+                    <label>Выберите раздел:</label>
+                    <select name="section_name" id="section-select" required>
+                        {% for section in products_data %}
+                        <option value="{{ section }}">{{ section }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Выберите товар:</label>
+                    <select name="product_name" required>
+                        {% for section, products in products_data.items() %}
+                            {% for product in products %}
+                            <option value="{{ product }}" data-section="{{ section }}">{{ product }}</option>
+                            {% endfor %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit">Удалить</button>
+            </form>
+        </div>
+    </div>
+</div>
 
-// Сохранение хоз. товаров
-document.getElementById('saveHoz').addEventListener('click', function() {
-    try {
-        var hozData = JSON.parse(document.getElementById('hozData').value);
-        
-        fetch('/api/hoz', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                hoz_items: hozData
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Хоз. товары успешно обновлены');
-            } else {
-                alert('Ошибка: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Ошибка:', error);
-            alert('Произошла ошибка при обновлении хоз. товаров');
-        });
-    } catch (e) {
-        alert('Ошибка в формате данных: ' + e.message);
-    }
-});
+<div style="margin-top: 20px; text-align: center;">
+    <a href="{{ url_for('admin_logout') }}" class="button">Выйти</a>
+    <a href="{{ url_for('menu') }}" class="button">Вернуться в меню</a>
+</div>
 
-// Сохранение рыбы
-document.getElementById('saveFish').addEventListener('click', function() {
-    try {
-        var fishData = JSON.parse(document.getElementById('fishData').value);
-        
-        fetch('/api/fish', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                fish_items: fishData
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Рыба успешно обновлена');
-            } else {
-                alert('Ошибка: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Ошибка:', error);
-            alert('Произошла ошибка при обновлении рыбы');
-        });
-    } catch (e) {
-        alert('Ошибка в формате данных: ' + e.message);
+<style>
+    .admin-section {
+        background-color: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
     }
-});
-
-// Сохранение курицы
-document.getElementById('saveChicken').addEventListener('click', function() {
-    try {
-        var chickenData = JSON.parse(document.getElementById('chickenData').value);
-        
-        fetch('/api/chicken', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                chicken_items: chickenData
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Курица успешно обновлена');
-            } else {
-                alert('Ошибка: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Ошибка:', error);
-            alert('Произошла ошибка при обновлении курицы');
-        });
-    } catch (e) {
-        alert('Ошибка в формате данных: ' + e.message);
-    }
-});
-
-// Сохранение паролей
-document.getElementById('savePasswords').addEventListener('click', function() {
-    var userPassword = document.getElementById('userPassword').value;
-    var adminPassword = document.getElementById('adminPassword').value;
     
-    // Сохраняем пароль пользователя
-    fetch('/api/password', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            type: 'user',
-            password: userPassword
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Сохраняем пароль администратора
-            return fetch('/api/password', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    type: 'admin',
-                    password: adminPassword
-                })
+    .admin-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .admin-card {
+        background-color: #f9f9f9;
+        padding: 1.5rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    
+    @media (max-width: 768px) {
+        .admin-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    // Фильтрация товаров по выбранному разделу
+    document.addEventListener('DOMContentLoaded', function() {
+        const sectionSelect = document.getElementById('section-select');
+        const productOptions = document.querySelectorAll('select[name="product_name"] option');
+        
+        function filterProducts() {
+            const selectedSection = sectionSelect.value;
+            
+            productOptions.forEach(option => {
+                if (option.dataset.section === selectedSection) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
             });
-        } else {
-            throw new Error(data.message);
+            
+            // Выбрать первый видимый вариант
+            const firstVisible = Array.from(productOptions).find(opt => opt.dataset.section === selectedSection);
+            if (firstVisible) {
+                firstVisible.selected = true;
+            }
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Пароли успешно обновлены');
-        } else {
-            alert('Ошибка: ' + data.message);
+        
+        if (sectionSelect) {
+            sectionSelect.addEventListener('change', filterProducts);
+            filterProducts(); // Запустить при загрузке страницы
         }
-    })
-    .catch(error => {
-        console.error('Ошибка:', error);
-        alert('Произошла ошибка при обновлении паролей');
     });
-});
+</script>
 {% endblock %}
