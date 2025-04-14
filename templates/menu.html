@@ -1,65 +1,28 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Меню | Система заказов{% endblock %}
-
-{% block header %}Меню{% endblock %}
+{% block title %}Главное меню{% endblock %}
 
 {% block content %}
-<div class="product-list">
-    {% for supplier, items in products.items() %}
-    <div class="product-category">
-        <h3>{{ supplier }}</h3>
-        {% for item in items %}
-        <div class="product-item">
-            <input type="checkbox" id="product-{{ loop.index }}-{{ supplier|replace(' ', '-') }}" data-name="{{ item }}">
-            <label for="product-{{ loop.index }}-{{ supplier|replace(' ', '-') }}">{{ item }}</label>
-        </div>
-        {% endfor %}
+<h2>Главное меню</h2>
+<div class="menu-grid">
+    <div class="menu-item">
+        <h3>Продукты</h3>
+        <a href="{{ url_for('products') }}" class="button">Перейти</a>
     </div>
-    {% endfor %}
+    <div class="menu-item">
+        <h3>Хоз. товары</h3>
+        <a href="{{ url_for('hoz') }}" class="button">Перейти</a>
+    </div>
+    <div class="menu-item">
+        <h3>Рыба</h3>
+        <a href="{{ url_for('fish') }}" class="button">Перейти</a>
+    </div>
+    <div class="menu-item">
+        <h3>Админ-панель</h3>
+        <a href="{{ url_for('admin') }}" class="button">Перейти</a>
+    </div>
 </div>
-
-<button id="orderBtn" class="order-btn">Отправить заказ</button>
-{% endblock %}
-
-{% block script %}
-document.getElementById('orderBtn').addEventListener('click', function() {
-    var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-    var selectedItems = [];
-    
-    checkboxes.forEach(function(checkbox) {
-        selectedItems.push(checkbox.dataset.name);
-    });
-    
-    if (selectedItems.length === 0) {
-        alert('Выберите хотя бы один товар');
-        return;
-    }
-    
-    fetch('/order', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            items: selectedItems
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Заказ успешно отправлен');
-            // Снимаем выделение со всех чекбоксов
-            checkboxes.forEach(function(checkbox) {
-                checkbox.checked = false;
-            });
-        } else {
-            alert('Ошибка: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Ошибка:', error);
-        alert('Произошла ошибка при отправке заказа');
-    });
-});
+<div style="margin-top: 20px; text-align: center;">
+    <a href="{{ url_for('logout') }}" class="button">Выйти</a>
+</div>
 {% endblock %}
