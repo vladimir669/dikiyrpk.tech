@@ -1,72 +1,230 @@
-<!-- Добавьте этот раздел в admin.html после раздела с рыбой -->
-<div class="admin-section">
-    <h2>Управление курицей</h2>
-    <div class="admin-items" id="chicken-items">
-        {% for item in chicken_items %}
-        <div class="admin-item">
-            <input type="text" value="{{ item }}" class="item-input">
-            <button class="remove-item-btn">Удалить</button>
-        </div>
-        {% endfor %}
-    </div>
-    <button id="add-chicken-btn" class="btn">Добавить товар</button>
-    <button id="save-chicken-btn" class="btn">Сохранить изменения</button>
-</div>
+{% extends 'base.html' %}
 
-<!-- Добавьте этот JavaScript код в конец файла -->
-<script>
-    // Код для управления курицей
-    document.getElementById('add-chicken-btn').addEventListener('click', function() {
-        const chickenItems = document.getElementById('chicken-items');
-        const newItem = document.createElement('div');
-        newItem.className = 'admin-item';
-        newItem.innerHTML = `
-            <input type="text" value="" class="item-input">
-            <button class="remove-item-btn">Удалить</button>
-        `;
-        chickenItems.appendChild(newItem);
-        
-        // Добавляем обработчик для новой кнопки удаления
-        newItem.querySelector('.remove-item-btn').addEventListener('click', function() {
-            this.parentElement.remove();
-        });
-    });
+{% block title %}Админ-панель | Система заказов{% endblock %}
+
+{% block header %}Админ-панель{% endblock %}
+
+{% block content %}
+<div class="admin-panel">
+    <div class="admin-section">
+        <h3>Продукты</h3>
+        <div class="admin-form">
+            <textarea id="productsData">{{ products|tojson }}</textarea>
+            <button id="saveProducts">Сохранить</button>
+        </div>
+    </div>
     
-    document.getElementById('save-chicken-btn').addEventListener('click', function() {
-        const chickenItems = [];
-        document.querySelectorAll('#chicken-items .item-input').forEach(input => {
-            if (input.value.trim() !== '') {
-                chickenItems.push(input.value.trim());
-            }
-        });
+    <div class="admin-section">
+        <h3>Хоз. товары</h3>
+        <div class="admin-form">
+            <textarea id="hozData">{{ hoz_items|tojson }}</textarea>
+            <button id="saveHoz">Сохранить</button>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h3>Рыба</h3>
+        <div class="admin-form">
+            <textarea id="fishData">{{ fish_items|tojson }}</textarea>
+            <button id="saveFish">Сохранить</button>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h3>Курица</h3>
+        <div class="admin-form">
+            <textarea id="chickenData">{{ chicken_items|tojson }}</textarea>
+            <button id="saveChicken">Сохранить</button>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h3>Пароли</h3>
+        <div class="admin-form">
+            <div class="form-group">
+                <label for="userPassword">Пароль пользователя:</label>
+                <input type="text" id="userPassword" value="4444">
+            </div>
+            <div class="form-group">
+                <label for="adminPassword">Пароль администратора:</label>
+                <input type="text" id="adminPassword" value="880088">
+            </div>
+            <button id="savePasswords">Сохранить</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+// Сохранение продуктов
+document.getElementById('saveProducts').addEventListener('click', function() {
+    try {
+        var productsData = JSON.parse(document.getElementById('productsData').value);
         
-        fetch('/api/chicken', {
+        fetch('/api/products', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                chicken_items: chickenItems
-            }),
+                products: productsData
+            })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showNotification('Данные о курице успешно обновлены');
+                alert('Продукты успешно обновлены');
             } else {
-                showNotification('Ошибка: ' + data.message);
+                alert('Ошибка: ' + data.message);
             }
         })
         .catch(error => {
-            showNotification('Ошибка обновления данных');
-            console.error('Error:', error);
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении продуктов');
         });
-    });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение хоз. товаров
+document.getElementById('saveHoz').addEventListener('click', function() {
+    try {
+        var hozData = JSON.parse(document.getElementById('hozData').value);
+        
+        fetch('/api/hoz', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                hoz_items: hozData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Хоз. товары успешно обновлены');
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении хоз. товаров');
+        });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение рыбы
+document.getElementById('saveFish').addEventListener('click', function() {
+    try {
+        var fishData = JSON.parse(document.getElementById('fishData').value);
+        
+        fetch('/api/fish', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                fish_items: fishData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Рыба успешно обновлена');
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении рыбы');
+        });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение курицы
+document.getElementById('saveChicken').addEventListener('click', function() {
+    try {
+        var chickenData = JSON.parse(document.getElementById('chickenData').value);
+        
+        fetch('/api/chicken', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                chicken_items: chickenData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Курица успешно обновлена');
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении курицы');
+        });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение паролей
+document.getElementById('savePasswords').addEventListener('click', function() {
+    var userPassword = document.getElementById('userPassword').value;
+    var adminPassword = document.getElementById('adminPassword').value;
     
-    // Добавляем обработчики для существующих кнопок удаления
-    document.querySelectorAll('#chicken-items .remove-item-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            this.parentElement.remove();
-        });
+    // Сохраняем пароль пользователя
+    fetch('/api/password', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: 'user',
+            password: userPassword
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Сохраняем пароль администратора
+            return fetch('/api/password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'admin',
+                    password: adminPassword
+                })
+            });
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Пароли успешно обновлены');
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при обновлении паролей');
     });
-</script>
+});
+{% endblock %}
