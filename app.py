@@ -9,9 +9,7 @@ from db_supabase import (
     load_products_data, save_products_data,
     load_hoz_data, save_hoz_data,
     load_fish_data, save_fish_data,
-    load_chicken_data, save_chicken_data,
-    create_default_products, create_default_hoz,
-    create_default_fish, create_default_chicken
+    load_chicken_data, save_chicken_data
 )
 
 # Настройка логирования
@@ -72,21 +70,7 @@ def safe_send_message(chat_id, text):
 def initialize():
     ensure_directories()
     init_db()
-    
-    # Принудительное обновление данных
-    products_data = create_default_products()
-    save_products_data(products_data)
-    
-    hoz_data = create_default_hoz()
-    save_hoz_data(hoz_data)
-    
-    fish_data = create_default_fish()
-    save_fish_data(fish_data)
-    
-    chicken_data = create_default_chicken()
-    save_chicken_data(chicken_data)
-    
-    logger.info("Данные успешно обновлены")
+    logger.info("База данных инициализирована")
 
 # Главная страница
 @app.route('/')
