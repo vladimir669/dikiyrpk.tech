@@ -66,11 +66,13 @@ def safe_send_message(chat_id, text):
         return None
 
 # Инициализация базы данных при запуске
-@app.before_first_request
+# Вместо before_first_request используем with_appcontext
+@app.route('/initialize')
 def initialize():
     ensure_directories()
     init_db()
     logger.info("База данных инициализирована")
+    return "База данных инициализирована"
 
 # Главная страница
 @app.route('/')
@@ -91,6 +93,18 @@ def login():
             return render_template('login.html', error='Неверный пароль')
     
     return render_template('login.html')
+
+# Добавляем маршрут для проверки пароля через AJAX
+@app.route('/check_password', methods=['POST'])
+def check_password():
+    password = request.form.get('password')
+    correct_password = get_password('user')
+    
+    if password == correct_password:
+        session['logged_in'] = True
+        return jsonify({'success': True, 'redirect': url_for('menu')})
+    else:
+        return jsonify({'success': False, 'message': 'Неверный пароль'})
 
 # Страница меню
 @app.route('/menu')
@@ -174,6 +188,18 @@ def admin_login():
             return render_template('admin_login.html', error='Неверный пароль')
     
     return render_template('admin_login.html')
+
+# Добавляем маршрут для проверки пароля админа через AJAX
+@app.route('/admin_login', methods=['POST'])
+def admin_check_password():
+    password = request.form.get('password')
+    correct_password = get_password('admin')
+    
+    if password == correct_password:
+        session['admin_logged_in'] = True
+        return jsonify({'success': True, 'redirect': url_for('admin_panel')})
+    else:
+        return jsonify({'success': False, 'message': 'Неверный пароль'})
 
 # Админ-панель
 @app.route('/admin')
@@ -318,6 +344,11 @@ def logout():
 def admin_logout():
     session.pop('admin_logged_in', None)
     return redirect(url_for('index'))
+
+# Добавляем маршрут для статических файлов
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return app.send_static_file(filename)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
