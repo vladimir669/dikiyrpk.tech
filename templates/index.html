@@ -1,21 +1,12 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Система заказа продуктов</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <h1>Система заказа продуктов</h1>
-        <div class="menu-buttons">
-            <a href="{{ url_for('login') }}" class="btn">Войти в меню</a>
-            <a href="{{ url_for('hoz') }}" class="btn">Хоз. товары</a>
-            <a href="{{ url_for('fish') }}" class="btn">Рыба</a>
-            <a href="{{ url_for('chicken') }}" class="btn">Курица</a>
-            <a href="{{ url_for('admin_login') }}" class="btn btn-secondary">Админ-панель</a>
-        </div>
-    </div>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Главная | Система заказов{% endblock %}
+
+{% block header %}Система заказов{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-top: 50px;">
+    <h2>Добро пожаловать в систему заказов</h2>
+    <p>Пожалуйста, выберите нужный раздел в меню выше.</p>
+</div>
+{% endblock %}
