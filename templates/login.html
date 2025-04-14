@@ -1,48 +1,16 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Вход | Система заказов{% endblock %}
-
-{% block header %}Вход в систему{% endblock %}
+{% block title %}Вход{% endblock %}
 
 {% block content %}
-<div class="login-form">
-    <h2>Вход</h2>
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
-    <form id="loginForm" method="post">
+<div class="login-container">
+    <h2>Вход в систему</h2>
+    <form method="post" action="{{ url_for('check_password') }}">
         <div class="form-group">
             <label for="password">Пароль:</label>
             <input type="password" id="password" name="password" required>
         </div>
-        <button type="submit" class="btn">Войти</button>
+        <button type="submit">Войти</button>
     </form>
 </div>
-{% endblock %}
-
-{% block script %}
-document.getElementById('loginForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    var password = document.getElementById('password').value;
-    var formData = new FormData();
-    formData.append('password', password);
-    
-    fetch('/check_password', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = data.redirect;
-        } else {
-            alert('Неверный пароль');
-        }
-    })
-    .catch(error => {
-        console.error('Ошибка:', error);
-        alert('Произошла ошибка при входе');
-    });
-});
 {% endblock %}
