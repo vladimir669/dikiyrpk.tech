@@ -1,355 +1,921 @@
-from flask import Flask, render_template, request, redirect, session, url_for, jsonify
-from flask_session import Session  # Добавлено для работы с сессиями
+# В начале app.py добавьте:
 import os
-import logging
-import json
-from datetime import datetime
-from db_supabase import (
-    init_db, get_password, set_password, 
-    load_products_data, save_products_data,
-    load_hoz_data, save_hoz_data,
-    load_fish_data, save_fish_data,
-    load_chicken_data, save_chicken_data
-)
+import shutil
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Создаем директорию для шаблонов, если она не существует
+templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+if not os.path.exists(templates_dir):
+    os.makedirs(templates_dir, exist_ok=True)
 
-# Определение путей для данных
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = '/tmp/persistent'
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
+# Функция для создания шаблона, если он не существует
+def create_template_if_not_exists(template_name, content):
+    template_path = os.path.join(templates_dir, template_name)
+    if not os.path.exists(template_path):
+        with open(template_path, 'w') as f:
+            f.write(content)
 
-app = Flask(__name__)
-app.secret_key = 'f7c8392f8a9e234b8f92e8c9d1a2b3c4'  # Случайный секретный ключ
-# Добавляем настройки для сессий
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_FILE_DIR'] = os.path.join(DATA_DIR, 'flask_session')
-Session(app)  # Инициализация Flask-Session
-
-# Настройки Telegram бота
-BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
-GROUP_ID = '-1002633190524'
-
-# Создание необходимых директорий
-def ensure_directories():
-    try:
-        # Создаем директорию для сессий
-        session_dir = os.path.join(DATA_DIR, 'flask_session')
-        if not os.path.exists(session_dir):
-            os.makedirs(session_dir)
-            logger.info(f"Директория {session_dir} успешно создана")
+# Создаем все необходимые шаблоны
+# Здесь нужно добавить вызовы функции create_template_if_not_exists для каждого шаблона
+# Например:
+create_template_if_not_exists('base.html', """<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Система заказов{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script>
+        // Предотвращаем масштабирование на мобильных устройствах
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
         
-        return True
-    except Exception as e:
-        logger.error(f"Ошибка при создании директории: {e}")
-        return False
-
-# Функция для безопасной отправки сообщений в Telegram
-def safe_send_message(chat_id, text):
-    try:
-        # Импортируем telebot только при необходимости отправки сообщения
-        import telebot
-        bot = telebot.TeleBot(BOT_TOKEN)
-        message = bot.send_message(chat_id, text)
-        logger.info(f"Сообщение успешно отправлено в чат {chat_id}")
-        return message
-    except Exception as e:
-        logger.error(f"Ошибка отправки сообщения: {e}")
-        return None
-
-# Инициализация базы данных при запуске
-# Вместо before_first_request используем with_appcontext
-@app.route('/initialize')
-def initialize():
-    ensure_directories()
-    init_db()
-    logger.info("База данных инициализирована")
-    return "База данных инициализирована"
-
-# Главная страница
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-# Страница входа
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        password = request.form.get('password')
-        correct_password = get_password('user')
-        
-        if password == correct_password:
-            session['logged_in'] = True
-            return redirect(url_for('menu'))
-        else:
-            return render_template('login.html', error='Неверный пароль')
+        var lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            var now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>{% block header %}Система заказов{% endblock %}</h1>
+        </div>
+    </header>
     
-    return render_template('login.html')
+    <nav>
+        <div class="container">
+            <a href="{{ url_for('index') }}">Главная</a>
+            {% if session.get('logged_in') %}
+                <a href="{{ url_for('menu') }}">Меню</a>
+                <a href="{{ url_for('hoz') }}">Хоз. товары</a>
+                <a href="{{ url_for('fish') }}">Рыба</a>
+                <a href="{{ url_for('chicken') }}">Курица</a>
+                <a href="{{ url_for('logout') }}">Выход</a>
+            {% elif session.get('admin_logged_in') %}
+                <a href="{{ url_for('admin_panel') }}">Админ-панель</a>
+                <a href="{{ url_for('admin_logout') }}">Выход</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Вход</a>
+                <a href="{{ url_for('admin_login') }}">Админ</a>
+            {% endif %}
+        </div>
+    </nav>
+    
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <script>
+        {% block script %}{% endblock %}
+    </script>
+</body>
+</html>
+""")
 
-# Добавляем маршрут для проверки пароля через AJAX
-@app.route('/check_password', methods=['POST'])
-def check_password():
-    password = request.form.get('password')
-    correct_password = get_password('user')
-    
-    if password == correct_password:
-        session['logged_in'] = True
-        return jsonify({'success': True, 'redirect': url_for('menu')})
-    else:
-        return jsonify({'success': False, 'message': 'Неверный пароль'})
+create_template_if_not_exists('index.html', """{% extends 'base.html' %}
 
-# Страница меню
-@app.route('/menu')
-def menu():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    
-    products = load_products_data()
-    return render_template('menu.html', products=products)
+{% block title %}Главная | Система заказов{% endblock %}
 
-# Страница хоз. товаров
-@app.route('/hoz')
-def hoz():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    
-    hoz_items = load_hoz_data()
-    return render_template('hoz.html', hoz_items=hoz_items)
+{% block header %}Система заказов{% endblock %}
 
-# Страница рыбы
-@app.route('/fish')
-def fish():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    
-    fish_items = load_fish_data()
-    return render_template('fish.html', fish_items=fish_items)
+{% block content %}
+<div style="text-align: center; margin-top: 50px;">
+    <h2>Добро пожаловать в систему заказов</h2>
+    <p>Пожалуйста, выберите нужный раздел в меню выше.</p>
+</div>
+{% endblock %}
+""")
 
-# Страница курицы
-@app.route('/chicken')
-def chicken():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    
-    chicken_items = load_chicken_data()
-    return render_template('chicken.html', chicken_items=chicken_items)
+create_template_if_not_exists('login.html', """{% extends 'base.html' %}
 
-# Обработка заказа
-@app.route('/order', methods=['POST'])
-def order():
-    if not session.get('logged_in'):
-        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
-    
-    try:
-        data = request.get_json()
-        order_items = data.get('items', [])
-        
-        if not order_items:
-            return jsonify({'success': False, 'message': 'Пустой заказ'})
-        
-        # Формируем текст сообщения
-        now = datetime.now()
-        message_text = f"Новый заказ от {now.strftime('%d.%m.%Y %H:%M')}\n\n"
-        
-        for item in order_items:
-            message_text += f"• {item}\n"
-        
-        # Отправляем сообщение в Telegram
-        result = safe_send_message(GROUP_ID, message_text)
-        
-        if result:
-            return jsonify({'success': True, 'message': 'Заказ успешно отправлен'})
-        else:
-            return jsonify({'success': False, 'message': 'Ошибка отправки заказа'})
-    
-    except Exception as e:
-        logger.error(f"Ошибка обработки заказа: {e}")
-        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+{% block title %}Вход | Система заказов{% endblock %}
 
-# Страница входа в админку
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        password = request.form.get('password')
-        correct_password = get_password('admin')
-        
-        if password == correct_password:
-            session['admin_logged_in'] = True
-            return redirect(url_for('admin_panel'))
-        else:
-            return render_template('admin_login.html', error='Неверный пароль')
-    
-    return render_template('admin_login.html')
+{% block header %}Вход в систему{% endblock %}
 
-# Добавляем маршрут для проверки пароля админа через AJAX
-@app.route('/admin_login', methods=['POST'])
-def admin_check_password():
-    password = request.form.get('password')
-    correct_password = get_password('admin')
-    
-    if password == correct_password:
-        session['admin_logged_in'] = True
-        return jsonify({'success': True, 'redirect': url_for('admin_panel')})
-    else:
-        return jsonify({'success': False, 'message': 'Неверный пароль'})
+{% block content %}
+<div class="login-form">
+    <h2>Вход</h2>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    <form id="loginForm" method="post">
+        <div class="form-group">
+            <label for="password">Пароль:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn">Войти</button>
+    </form>
+</div>
+{% endblock %}
 
-# Админ-панель
-@app.route('/admin')
-def admin_panel():
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
+{% block script %}
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    e.preventDefault();
     
-    products = load_products_data()
-    hoz_items = load_hoz_data()
-    fish_items = load_fish_data()
-    chicken_items = load_chicken_data()
+    var password = document.getElementById('password').value;
+    var formData = new FormData();
+    formData.append('password', password);
     
-    return render_template('admin.html', 
-                          products=products, 
-                          hoz_items=hoz_items,
-                          fish_items=fish_items,
-                          chicken_items=chicken_items)
+    fetch('/check_password', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            alert('Неверный пароль');
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при входе');
+    });
+});
+{% endblock %}
+""")
 
-# API для обновления продуктов
-@app.route('/api/products', methods=['POST'])
-def update_products():
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
-    
-    try:
-        data = request.get_json()
-        products = data.get('products', {})
-        
-        if not products:
-            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
-        
-        # Сохраняем обновленные данные
-        save_products_data(products)
-        
-        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
-    
-    except Exception as e:
-        logger.error(f"Ошибка обновления продуктов: {e}")
-        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+create_template_if_not_exists('admin_login.html', """{% extends 'base.html' %}
 
-# API для обновления хоз. товаров
-@app.route('/api/hoz', methods=['POST'])
-def update_hoz():
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
-    
-    try:
-        data = request.get_json()
-        hoz_items = data.get('hoz_items', [])
-        
-        if not hoz_items:
-            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
-        
-        # Сохраняем обновленные данные
-        save_hoz_data(hoz_items)
-        
-        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
-    
-    except Exception as e:
-        logger.error(f"Ошибка обновления хоз. товаров: {e}")
-        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+{% block title %}Админ | Система заказов{% endblock %}
 
-# API для обновления рыбы
-@app.route('/api/fish', methods=['POST'])
-def update_fish():
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
-    
-    try:
-        data = request.get_json()
-        fish_items = data.get('fish_items', [])
-        
-        if not fish_items:
-            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
-        
-        # Сохраняем обновленные данные
-        save_fish_data(fish_items)
-        
-        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
-    
-    except Exception as e:
-        logger.error(f"Ошибка обновления рыбы: {e}")
-        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+{% block header %}Вход в админ-панель{% endblock %}
 
-# API для обновления курицы
-@app.route('/api/chicken', methods=['POST'])
-def update_chicken():
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+{% block content %}
+<div class="login-form">
+    <h2>Вход в админ-панель</h2>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    <form id="adminLoginForm" method="post">
+        <div class="form-group">
+            <label for="password">Пароль:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn">Войти</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block script %}
+document.getElementById('adminLoginForm').addEventListener('submit', function(e) {
+    e.preventDefault();
     
-    try:
-        data = request.get_json()
-        chicken_items = data.get('chicken_items', [])
-        
-        if not chicken_items:
-            return jsonify({'success': False, 'message': 'Нет данных для обновления'})
-        
-        # Сохраняем обновленные данные
-        save_chicken_data(chicken_items)
-        
-        return jsonify({'success': True, 'message': 'Данные успешно обновлены'})
+    var password = document.getElementById('password').value;
+    var formData = new FormData();
+    formData.append('password', password);
     
-    except Exception as e:
-        logger.error(f"Ошибка обновления курицы: {e}")
-        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+    fetch('/admin_login', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            alert('Неверный пароль');
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при входе');
+    });
+});
+{% endblock %}
+""")
 
-# API для изменения пароля
-@app.route('/api/password', methods=['POST'])
-def update_password():
-    if not session.get('admin_logged_in'):
-        return jsonify({'success': False, 'message': 'Необходимо войти в систему'})
+create_template_if_not_exists('menu.html', """{% extends 'base.html' %}
+
+{% block title %}Меню | Система заказов{% endblock %}
+
+{% block header %}Меню{% endblock %}
+
+{% block content %}
+<div class="product-list">
+    {% for supplier, items in products.items() %}
+    <div class="product-category">
+        <h3>{{ supplier }}</h3>
+        {% for item in items %}
+        <div class="product-item">
+            <input type="checkbox" id="product-{{ loop.index }}-{{ supplier|replace(' ', '-') }}" data-name="{{ item }}">
+            <label for="product-{{ loop.index }}-{{ supplier|replace(' ', '-') }}">{{ item }}</label>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+<button id="orderBtn" class="order-btn">Отправить заказ</button>
+{% endblock %}
+
+{% block script %}
+document.getElementById('orderBtn').addEventListener('click', function() {
+    var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+    var selectedItems = [];
     
-    try:
-        data = request.get_json()
-        password_type = data.get('type')
-        new_password = data.get('password')
-        
-        if not password_type or not new_password:
-            return jsonify({'success': False, 'message': 'Неверные параметры'})
-        
-        # Проверяем тип пароля
-        if password_type not in ['user', 'admin']:
-            return jsonify({'success': False, 'message': 'Неверный тип пароля'})
-        
-        # Сохраняем новый пароль
-        set_password(password_type, new_password)
-        
-        return jsonify({'success': True, 'message': 'Пароль успешно изменен'})
+    checkboxes.forEach(function(checkbox) {
+        selectedItems.push(checkbox.dataset.name);
+    });
     
-    except Exception as e:
-        logger.error(f"Ошибка изменения пароля: {e}")
-        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'})
+    if (selectedItems.length === 0) {
+        alert('Выберите хотя бы один товар');
+        return;
+    }
+    
+    fetch('/order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            items: selectedItems
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Заказ успешно отправлен');
+            // Снимаем выделение со всех чекбоксов
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = false;
+            });
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при отправке заказа');
+    });
+});
+{% endblock %}
+""")
 
-# Выход из системы
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('index'))
+create_template_if_not_exists('hoz.html', """{% extends 'base.html' %}
 
-# Выход из админки
-@app.route('/admin/logout')
-def admin_logout():
-    session.pop('admin_logged_in', None)
-    return redirect(url_for('index'))
+{% block title %}Хоз. товары | Система заказов{% endblock %}
 
-# Добавляем маршрут для статических файлов
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return app.send_static_file(filename)
+{% block header %}Хоз. товары{% endblock %}
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+{% block content %}
+<div class="product-list">
+    <div class="product-category">
+        <h3>Хоз. товары</h3>
+        {% for item in hoz_items %}
+        <div class="product-item">
+            <input type="checkbox" id="hoz-{{ loop.index }}" data-name="{{ item }}">
+            <label for="hoz-{{ loop.index }}">{{ item }}</label>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<button id="orderBtn" class="order-btn">Отправить заказ</button>
+{% endblock %}
+
+{% block script %}
+document.getElementById('orderBtn').addEventListener('click', function() {
+    var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+    var selectedItems = [];
+    
+    checkboxes.forEach(function(checkbox) {
+        selectedItems.push(checkbox.dataset.name);
+    });
+    
+    if (selectedItems.length === 0) {
+        alert('Выберите хотя бы один товар');
+        return;
+    }
+    
+    fetch('/order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            items: selectedItems
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Заказ успешно отправлен');
+            // Снимаем выделение со всех чекбоксов
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = false;
+            });
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при отправке заказа');
+    });
+});
+{% endblock %}
+""")
+
+create_template_if_not_exists('fish.html', """{% extends 'base.html' %}
+
+{% block title %}Рыба | Система заказов{% endblock %}
+
+{% block header %}Рыба{% endblock %}
+
+{% block content %}
+<div class="product-list">
+    <div class="product-category">
+        <h3>Рыба</h3>
+        {% for item in fish_items %}
+        <div class="product-item">
+            <input type="checkbox" id="fish-{{ loop.index }}" data-name="{{ item }}">
+            <label for="fish-{{ loop.index }}">{{ item }}</label>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<button id="orderBtn" class="order-btn">Отправить заказ</button>
+{% endblock %}
+
+{% block script %}
+document.getElementById('orderBtn').addEventListener('click', function() {
+    var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+    var selectedItems = [];
+    
+    checkboxes.forEach(function(checkbox) {
+        selectedItems.push(checkbox.dataset.name);
+    });
+    
+    if (selectedItems.length === 0) {
+        alert('Выберите хотя бы один товар');
+        return;
+    }
+    
+    fetch('/order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            items: selectedItems
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Заказ успешно отправлен');
+            // Снимаем выделение со всех чекбоксов
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = false;
+            });
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при отправке заказа');
+    });
+});
+{% endblock %}
+""")
+
+create_template_if_not_exists('chicken.html', """{% extends 'base.html' %}
+
+{% block title %}Курица | Система заказов{% endblock %}
+
+{% block header %}Курица{% endblock %}
+
+{% block content %}
+<div class="product-list">
+    <div class="product-category">
+        <h3>Курица</h3>
+        {% for item in chicken_items %}
+        <div class="product-item">
+            <input type="checkbox" id="chicken-{{ loop.index }}" data-name="{{ item }}">
+            <label for="chicken-{{ loop.index }}">{{ item }}</label>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<button id="orderBtn" class="order-btn">Отправить заказ</button>
+{% endblock %}
+
+{% block script %}
+document.getElementById('orderBtn').addEventListener('click', function() {
+    var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+    var selectedItems = [];
+    
+    checkboxes.forEach(function(checkbox) {
+        selectedItems.push(checkbox.dataset.name);
+    });
+    
+    if (selectedItems.length === 0) {
+        alert('Выберите хотя бы один товар');
+        return;
+    }
+    
+    fetch('/order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            items: selectedItems
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Заказ успешно отправлен');
+            // Снимаем выделение со всех чекбоксов
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = false;
+            });
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при отправке заказа');
+    });
+});
+{% endblock %}
+""")
+
+create_template_if_not_exists('admin.html', """{% extends 'base.html' %}
+
+{% block title %}Админ-панель | Система заказов{% endblock %}
+
+{% block header %}Админ-панель{% endblock %}
+
+{% block content %}
+<div class="admin-panel">
+    <div class="admin-section">
+        <h3>Продукты</h3>
+        <div class="admin-form">
+            <textarea id="productsData">{{ products|tojson }}</textarea>
+            <button id="saveProducts">Сохранить</button>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h3>Хоз. товары</h3>
+        <div class="admin-form">
+            <textarea id="hozData">{{ hoz_items|tojson }}</textarea>
+            <button id="saveHoz">Сохранить</button>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h3>Рыба</h3>
+        <div class="admin-form">
+            <textarea id="fishData">{{ fish_items|tojson }}</textarea>
+            <button id="saveFish">Сохранить</button>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h3>Курица</h3>
+        <div class="admin-form">
+            <textarea id="chickenData">{{ chicken_items|tojson }}</textarea>
+            <button id="saveChicken">Сохранить</button>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h3>Пароли</h3>
+        <div class="admin-form">
+            <div class="form-group">
+                <label for="userPassword">Пароль пользователя:</label>
+                <input type="text" id="userPassword" value="4444">
+            </div>
+            <div class="form-group">
+                <label for="adminPassword">Пароль администратора:</label>
+                <input type="text" id="adminPassword" value="880088">
+            </div>
+            <button id="savePasswords">Сохранить</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+// Сохранение продуктов
+document.getElementById('saveProducts').addEventListener('click', function() {
+    try {
+        var productsData = JSON.parse(document.getElementById('productsData').value);
+        
+        fetch('/api/products', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                products: productsData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Продукты успешно обновлены');
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении продуктов');
+        });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение хоз. товаров
+document.getElementById('saveHoz').addEventListener('click', function() {
+    try {
+        var hozData = JSON.parse(document.getElementById('hozData').value);
+        
+        fetch('/api/hoz', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                hoz_items: hozData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Хоз. товары успешно обновлены');
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении хоз. товаров');
+        });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение рыбы
+document.getElementById('saveFish').addEventListener('click', function() {
+    try {
+        var fishData = JSON.parse(document.getElementById('fishData').value);
+        
+        fetch('/api/fish', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                fish_items: fishData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Рыба успешно обновлена');
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении рыбы');
+        });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение курицы
+document.getElementById('saveChicken').addEventListener('click', function() {
+    try {
+        var chickenData = JSON.parse(document.getElementById('chickenData').value);
+        
+        fetch('/api/chicken', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                chicken_items: chickenData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Курица успешно обновлена');
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при обновлении курицы');
+        });
+    } catch (e) {
+        alert('Ошибка в формате данных: ' + e.message);
+    }
+});
+
+// Сохранение паролей
+document.getElementById('savePasswords').addEventListener('click', function() {
+    var userPassword = document.getElementById('userPassword').value;
+    var adminPassword = document.getElementById('adminPassword').value;
+    
+    // Сохраняем пароль пользователя
+    fetch('/api/password', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: 'user',
+            password: userPassword
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Сохраняем пароль администратора
+            return fetch('/api/password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'admin',
+                    password: adminPassword
+                })
+            });
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Пароли успешно обновлены');
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка при обновлении паролей');
+    });
+});
+{% endblock %}
+""")
+
+# Создаем директорию для статических файлов, если она не существует
+static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+css_dir = os.path.join(static_dir, 'css')
+if not os.path.exists(css_dir):
+    os.makedirs(css_dir, exist_ok=True)
+
+# Создаем файл style.css, если он не существует
+css_file = os.path.join(css_dir, 'style.css')
+if not os.path.exists(css_file):
+    with open(css_file, 'w') as f:
+        f.write("""
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    background-color: #333;
+    color: white;
+    padding: 10px 0;
+    text-align: center;
+}
+
+nav {
+    display: flex;
+    justify-content: center;
+    background-color: #444;
+    padding: 10px 0;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    margin: 0 15px;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+nav a:hover {
+    background-color: #555;
+}
+
+.login-form {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 20px;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-form h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 15px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background-color: #555;
+}
+
+.error {
+    color: red;
+    margin-bottom: 15px;
+}
+
+.product-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.product-category {
+    flex: 1;
+    min-width: 300px;
+    background-color: white;
+    border-radius: 5px;
+    padding: 15px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.product-category h3 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.product-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.product-item input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.order-btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+.order-btn:hover {
+    background-color: #45a049;
+}
+
+.admin-panel {
+    background-color: white;
+    border-radius: 5px;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.admin-section {
+    margin-bottom: 30px;
+}
+
+.admin-section h3 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.admin-form {
+    margin-top: 20px;
+}
+
+.admin-form textarea {
+    width: 100%;
+    height: 200px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.admin-form input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.admin-form button {
+    padding: 10px 15px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.admin-form button:hover {
+    background-color: #555;
+}
+
+.message {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@media (max-width: 768px) {
+    .product-category {
+        min-width: 100%;
+    }
+    
+    nav {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    nav a {
+        margin: 5px 0;
+    }
+}
+        """)
