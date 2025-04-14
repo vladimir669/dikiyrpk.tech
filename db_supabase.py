@@ -7,8 +7,8 @@ from supabase import create_client, Client
 logger = logging.getLogger(__name__)
 
 # Настройки Supabase
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://wxlrektensoxrnwipsbs.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4bHJla3RlbnNveHJud2lwc2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDU1NDk3NCwiZXhwIjoyMDYwMTMwOTc0fQ.45X6uk_ZfNvwLjmBOum2s3JZnm6KehUvImzzec0iWMc")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://your-supabase-url.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-key")
 
 # Инициализация клиента Supabase
 try:
@@ -108,6 +108,28 @@ def set_password(password_type, new_password):
 def create_default_products():
     """Создание структуры данных по умолчанию"""
     default_data = {
+        "Оши": [
+            "Угорь жаренный Унаги ТЕХ (в уп 10%)",
+            "Соус соевый Стандарт Плюс 20кг",
+            "Соус Унаги OSHI 1.8л",
+            "Соус Кимчи 1.8л OSHI",
+            "Картофель Фри Брусок 9*9 2.5кг*5, Lamb Weston",
+            "Рис в/с Россия 25кг",
+            "Уксус Рисовый OSHI 20л пр-во Космос"
+        ],
+        "Рафт": [
+            "Масаго красная Санта-бремор",
+            "Масаго черная Санта-бремор",
+            "Масаго оранжевая Санта-бремор",
+            "Водоросли Нори 100 листов, 240 г/уп, 72шт/кор, 17,28 кг/кор, Россия",
+            "Соус Чили-манго \"Food Service\", 1кг, 6 шт/кор, 10415806, Гурмикс, Россия",
+            "Картофельные дольки в кожуре со специями, уп. 0,9кг, замороженный, 9кг/кор, Tayyebat, Ливан",
+            "Кунжутное семя обжаренное белое 1 кг, 15 шт/кор, СКМ, Россия",
+            "Лук жареный 1 кг, 10 шт/кор, Нидерланды",
+            "Тунец филе Tellowfin, сім, 500-800гр, Saku (сяку) Аками, ААА, кор. -10хг., Babdian Food (Fujian) Co, Ltd / 3500/02248. Китай",
+            "Луковые кольца в панировке (формованые) зам.уп 0,908 кг, 8шт/кор., 7,264 кг/кор, Baby Star, Китай",
+            "Нагетсы серволюкс"
+        ],
         "Свит Лайф": [
             "Сыр полутвердый Моцарелла Пицца 40% Bonfesio Cooking 2.6кг",
             "Сыр Пармезан 9 Месяцев ЮКМП Цилиндр 45% 6-6.5кг",
@@ -129,28 +151,6 @@ def create_default_products():
             "Мука пшеничная Царица Кубанская Высший Сорт 5кг",
             "Сахарный песок сумка Россия 5кг",
             "Порошок Васаби Tamaki 2кг"
-        ],
-        "Рафт": [
-            "Масаго красная Санта-бремор",
-            "Масаго черная Санта-бремор",
-            "Масаго оранжевая Санта-бремор",
-            "Водоросли Нори 100 листов, 240 г/уп, 72шт/кор, 17,28 кг/кор, Россия",
-            "Соус Чили-манго \"Food Service\", 1кг, 6 шт/кор, 10415806, Гурмикс, Россия",
-            "Картофельные дольки в кожуре со специями, уп. 0,9кг, замороженный, 9кг/кор, Tayyebat, Ливан",
-            "Кунжутное семя обжаренное белое 1 кг, 15 шт/кор, СКМ, Россия",
-            "Лук жареный 1 кг, 10 шт/кор, Нидерланды",
-            "Тунец филе Tellowfin, сім, 500-800гр, Saku (сяку) Аками, ААА, кор. -10хг., Babdian Food (Fujian) Co, Ltd / 3500/02248. Китай",
-            "Луковые кольца в панировке (формованые) зам.уп 0,908 кг, 8шт/кор., 7,264 кг/кор, Baby Star, Китай",
-            "Нагетсы серволюкс"
-        ],
-        "Оши": [
-            "Угорь жаренный Унаги ТЕХ (в уп 10%)",
-            "Соус соевый Стандарт Плюс 20кг",
-            "Соус Унаги OSHI 1.8л",
-            "Соус Кимчи 1.8л OSHI",
-            "Картофель Фри Брусок 9*9 2.5кг*5, Lamb Weston",
-            "Рис в/с Россия 25кг",
-            "Уксус Рисовый OSHI 20л пр-во Космос"
         ]
     }
     return default_data
@@ -187,6 +187,7 @@ def create_default_hoz():
         "Освежитель воздуха First Fresh в ассорт. 300мл. 1/12",
         "Пакет КРАФТ без ручки 260Х150Х340 70гр (1/450), Монолит",
         "Пакет КРАФТ с крученной ручкой 320*200*370 (1/200), Монолит",
+        "Пакет КРАФТ с плоской ручкой 280*150*320 (1/250), Монолит",
         "Соусник 30 мл (1234 П) с верхним закрытием прозрачный (1/80/1920) ВЗЛП н, ВЗЛП",
         "Соусник 50 мл (1244 П) с верхним закрытием прозрачный (1/80/1200) ВЗЛП, ВЗЛП",
         "Соусник 80 мл (1254 П) с верхним закрытием прозрачный (1/80/960) ВЗЛП н, ВЗЛП",
@@ -340,29 +341,4 @@ def load_chicken_data():
             logger.info("Данные о курице успешно загружены из Supabase")
             return data
     except Exception as e:
-        logger.error(f"Ошибка загрузки данных о курице: {e}")
-    
-    logger.info("Создание курицы по умолчанию")
-    data = create_default_chicken()
-    save_chicken_data(data)
-    return data
-
-def save_chicken_data(data):
-    """Сохранение данных о курице в Supabase"""
-    try:
-        if not supabase:
-            logger.error("Supabase клиент не инициализирован")
-            return False
-
-        response = supabase.table('chicken').select('*').execute()
-        if response.data:
-            record_id = response.data[0]['id']
-            supabase.table('chicken').update({'data': data}).eq('id', record_id).execute()
-        else:
-            supabase.table('chicken').insert({'data': data}).execute()
-        
-        logger.info("Данные о курице успешно сохранены в Supabase")
-        return True
-    except Exception as e:
-        logger.error(f"Ошибка сохранения данных о курице: {e}")
-        return False
+        logge
