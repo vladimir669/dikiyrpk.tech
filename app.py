@@ -587,10 +587,14 @@ init_password_files()
 # Маршруты Flask
 @app.route('/')
 def index():
+    return redirect(url_for('login'))
+
+@app.route('/login')
+def login():
     return render_template('login.html')
 
 @app.route('/check_password', methods=['POST'])
-def check_password_route():
+def check_password():
     try:
         entered_password = request.form.get('password')
         if check_password(entered_password, 'user'):
