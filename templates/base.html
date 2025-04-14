@@ -5,57 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Система заказов{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script>
-        // Предотвращаем масштабирование на мобильных устройствах
-        document.addEventListener('touchstart', function(event) {
-            if (event.touches.length > 1) {
-                event.preventDefault();
-            }
-        }, { passive: false });
-        
-        var lastTouchEnd = 0;
-        document.addEventListener('touchend', function(event) {
-            var now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
-                event.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
-    </script>
-    {% block head %}{% endblock %}
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <div class="container">
-            <h1>{% block header %}Система заказов{% endblock %}</h1>
-        </div>
-    </header>
-    
-    <nav>
-        <div class="container">
-            <a href="{{ url_for('index') }}">Главная</a>
-            {% if session.get('logged_in') %}
-                <a href="{{ url_for('menu') }}">Меню</a>
-                <a href="{{ url_for('hoz') }}">Хоз. товары</a>
-                <a href="{{ url_for('fish') }}">Рыба</a>
-                <a href="{{ url_for('chicken') }}">Курица</a>
-                <a href="{{ url_for('logout') }}">Выход</a>
-            {% elif session.get('admin_logged_in') %}
-                <a href="{{ url_for('admin_panel') }}">Админ-панель</a>
-                <a href="{{ url_for('admin_logout') }}">Выход</a>
-            {% else %}
-                <a href="{{ url_for('login') }}">Вход</a>
-                <a href="{{ url_for('admin_login') }}">Админ</a>
-            {% endif %}
-        </div>
-    </nav>
-    
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
-    
-    <script>
-        {% block script %}{% endblock %}
-    </script>
+    <div class="container">
+        <header>
+            <h1>Система заказов</h1>
+        </header>
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+        <footer>
+            <p>&copy; 2025 Система заказов</p>
+        </footer>
+    </div>
 </body>
 </html>
