@@ -7,26 +7,91 @@ from supabase import create_client, Client
 logger = logging.getLogger(__name__)
 
 # Настройки Supabase
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://your-supabase-url.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-key")
+SUPABASE_URL = os.environ.get("https://wxlrektensoxrnwipsbs.supabase.co", "")
+SUPABASE_KEY = os.environ.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4bHJla3RlbnNveHJud2lwc2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDU1NDk3NCwiZXhwIjoyMDYwMTMwOTc0fQ.45X6uk_ZfNvwLjmBOum2s3JZnm6KehUvImzzec0iWMc", "")
 
 # Инициализация клиента Supabase
+supabase = None
 try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    logger.info("Supabase клиент успешно инициализирован")
+    if SUPABASE_URL and SUPABASE_KEY:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        logger.info("Supabase клиент успешно инициализирован")
+    else:
+        logger.warning("Отсутствуют переменные окружения SUPABASE_URL или SUPABASE_KEY")
 except Exception as e:
     logger.error(f"Ошибка инициализации Supabase клиента: {e}")
-    supabase = None
 
 def init_db():
     """Инициализация базы данных"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, используем локальное хранилище")
             return False
         
-        # Проверяем существование таблиц, но не обновляем данные
+        # Проверяем существование таблиц
         logger.info("Проверка базы данных")
+        
+        # Создаем таблицы, если они не существуют
+        try:
+            # Проверяем таблицу products
+            supabase.table('products').select('*').limit(1).execute()
+        except Exception as e:
+            logger.warning(f"Таблица products не существует: {e}")
+            # Создаем таблицу products
+            try:
+                supabase.rpc('create_products_table').execute()
+                logger.info("Таблица products успешно создана")
+            except Exception as e:
+                logger.error(f"Ошибка создания таблицы products: {e}")
+        
+        try:
+            # Проверяем таблицу hoz
+            supabase.table('hoz').select('*').limit(1).execute()
+        except Exception as e:
+            logger.warning(f"Таблица hoz не существует: {e}")
+            # Создаем таблицу hoz
+            try:
+                supabase.rpc('create_hoz_table').execute()
+                logger.info("Таблица hoz успешно создана")
+            except Exception as e:
+                logger.error(f"Ошибка создания таблицы hoz: {e}")
+        
+        try:
+            # Проверяем таблицу fish
+            supabase.table('fish').select('*').limit(1).execute()
+        except Exception as e:
+            logger.warning(f"Таблица fish не существует: {e}")
+            # Создаем таблицу fish
+            try:
+                supabase.rpc('create_fish_table').execute()
+                logger.info("Таблица fish успешно создана")
+            except Exception as e:
+                logger.error(f"Ошибка создания таблицы fish: {e}")
+        
+        try:
+            # Проверяем таблицу chicken
+            supabase.table('chicken').select('*').limit(1).execute()
+        except Exception as e:
+            logger.warning(f"Таблица chicken не существует: {e}")
+            # Создаем таблицу chicken
+            try:
+                supabase.rpc('create_chicken_table').execute()
+                logger.info("Таблица chicken успешно создана")
+            except Exception as e:
+                logger.error(f"Ошибка создания таблицы chicken: {e}")
+        
+        try:
+            # Проверяем таблицу passwords
+            supabase.table('passwords').select('*').limit(1).execute()
+        except Exception as e:
+            logger.warning(f"Таблица passwords не существует: {e}")
+            # Создаем таблицу passwords
+            try:
+                supabase.rpc('create_passwords_table').execute()
+                logger.info("Таблица passwords успешно создана")
+            except Exception as e:
+                logger.error(f"Ошибка создания таблицы passwords: {e}")
+        
         return True
     except Exception as e:
         logger.error(f"Ошибка инициализации базы данных: {e}")
@@ -36,7 +101,7 @@ def get_password(password_type):
     """Получение пароля из Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, используем пароли по умолчанию")
             return '4444' if password_type == 'user' else '880088'
 
         response = supabase.table('passwords').select('*').execute()
@@ -44,6 +109,12 @@ def get_password(password_type):
             passwords = response.data[0]
             return passwords.get('user_password' if password_type == 'user' else 'admin_password', 
                                '4444' if password_type == 'user' else '880088')
+        else:
+            # Если записей нет, создаем запись с паролями по умолчанию
+            data = {'user_password': '4444', 'admin_password': '880088'}
+            supabase.table('passwords').insert(data).execute()
+            logger.info("Созданы пароли по умолчанию")
+            return '4444' if password_type == 'user' else '880088'
     except Exception as e:
         logger.error(f"Ошибка получения пароля: {e}")
     
@@ -53,7 +124,7 @@ def set_password(password_type, new_password):
     """Установка нового пароля в Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, пароль не сохранен")
             return False
 
         response = supabase.table('passwords').select('*').execute()
@@ -182,7 +253,7 @@ def load_products_data():
     """Загрузка данных о продуктах из Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, используем данные по умолчанию")
             return create_default_products()
 
         # Получаем все продукты
@@ -204,7 +275,19 @@ def load_products_data():
             return result
         else:
             # Если данных нет, возвращаем значения по умолчанию
-            return create_default_products()
+            default_data = create_default_products()
+            # Сохраняем значения по умолчанию в базу
+            for supplier, items in default_data.items():
+                for name in items:
+                    try:
+                        supabase.table('products').insert({
+                            'name': name,
+                            'supplier': supplier
+                        }).execute()
+                    except Exception as e:
+                        logger.error(f"Ошибка сохранения продукта {name}: {e}")
+            
+            return default_data
     except Exception as e:
         logger.error(f"Ошибка загрузки данных о продуктах: {e}")
         return create_default_products()
@@ -213,7 +296,7 @@ def save_products_data(data):
     """Сохранение данных о продуктах в Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, данные не сохранены")
             return False
 
         # Получаем текущие данные
@@ -235,12 +318,18 @@ def save_products_data(data):
             if supplier not in data:
                 # Удаляем все записи этого поставщика
                 for name, id in items.items():
-                    supabase.table('products').delete().eq('id', id).execute()
+                    try:
+                        supabase.table('products').delete().eq('id', id).execute()
+                    except Exception as e:
+                        logger.error(f"Ошибка удаления продукта {name}: {e}")
             else:
                 # Удаляем записи, которых нет в новых данных
                 for name, id in items.items():
                     if name not in data[supplier]:
-                        supabase.table('products').delete().eq('id', id).execute()
+                        try:
+                            supabase.table('products').delete().eq('id', id).execute()
+                        except Exception as e:
+                            logger.error(f"Ошибка удаления продукта {name}: {e}")
         
         # Добавляем новые записи
         for supplier, items in data.items():
@@ -250,10 +339,13 @@ def save_products_data(data):
                     continue
                 
                 # Добавляем новую запись
-                supabase.table('products').insert({
-                    'name': name,
-                    'supplier': supplier
-                }).execute()
+                try:
+                    supabase.table('products').insert({
+                        'name': name,
+                        'supplier': supplier
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Ошибка добавления продукта {name}: {e}")
         
         logger.info("Данные о продуктах успешно сохранены в Supabase")
         return True
@@ -265,7 +357,7 @@ def load_hoz_data():
     """Загрузка данных о хоз. товарах из Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, используем данные по умолчанию")
             return create_default_hoz()
 
         # Получаем все хоз. товары
@@ -283,7 +375,18 @@ def load_hoz_data():
             return result
         else:
             # Если данных нет, возвращаем значения по умолчанию
-            return create_default_hoz()
+            default_data = create_default_hoz()
+            # Сохраняем значения по умолчанию в базу
+            for name in default_data:
+                try:
+                    supabase.table('hoz').insert({
+                        'name': name,
+                        'supplier': 'Хоз. товары'
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Ошибка сохранения хоз. товара {name}: {e}")
+            
+            return default_data
     except Exception as e:
         logger.error(f"Ошибка загрузки данных о хоз. товарах: {e}")
         return create_default_hoz()
@@ -292,7 +395,7 @@ def save_hoz_data(data):
     """Сохранение данных о хоз. товарах в Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, данные не сохранены")
             return False
 
         # Получаем текущие данные
@@ -309,7 +412,10 @@ def save_hoz_data(data):
         # Удаляем записи, которых нет в новых данных
         for name, id in current_data.items():
             if name not in data:
-                supabase.table('hoz').delete().eq('id', id).execute()
+                try:
+                    supabase.table('hoz').delete().eq('id', id).execute()
+                except Exception as e:
+                    logger.error(f"Ошибка удаления хоз. товара {name}: {e}")
         
         # Добавляем новые записи
         for name in data:
@@ -318,10 +424,13 @@ def save_hoz_data(data):
                 continue
             
             # Добавляем новую запись
-            supabase.table('hoz').insert({
-                'name': name,
-                'supplier': 'Хоз. товары'
-            }).execute()
+            try:
+                supabase.table('hoz').insert({
+                    'name': name,
+                    'supplier': 'Хоз. товары'
+                }).execute()
+            except Exception as e:
+                logger.error(f"Ошибка добавления хоз. товара {name}: {e}")
         
         logger.info("Данные о хоз. товарах успешно сохранены в Supabase")
         return True
@@ -333,7 +442,7 @@ def load_fish_data():
     """Загрузка данных о рыбе из Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, используем данные по умолчанию")
             return create_default_fish()
 
         # Получаем все рыбные товары
@@ -351,7 +460,18 @@ def load_fish_data():
             return result
         else:
             # Если данных нет, возвращаем значения по умолчанию
-            return create_default_fish()
+            default_data = create_default_fish()
+            # Сохраняем значения по умолчанию в базу
+            for name in default_data:
+                try:
+                    supabase.table('fish').insert({
+                        'name': name,
+                        'supplier': 'Рыба'
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Ошибка сохранения рыбы {name}: {e}")
+            
+            return default_data
     except Exception as e:
         logger.error(f"Ошибка загрузки данных о рыбе: {e}")
         return create_default_fish()
@@ -360,7 +480,7 @@ def save_fish_data(data):
     """Сохранение данных о рыбе в Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, данные не сохранены")
             return False
 
         # Получаем текущие данные
@@ -377,7 +497,10 @@ def save_fish_data(data):
         # Удаляем записи, которых нет в новых данных
         for name, id in current_data.items():
             if name not in data:
-                supabase.table('fish').delete().eq('id', id).execute()
+                try:
+                    supabase.table('fish').delete().eq('id', id).execute()
+                except Exception as e:
+                    logger.error(f"Ошибка удаления рыбы {name}: {e}")
         
         # Добавляем новые записи
         for name in data:
@@ -386,10 +509,13 @@ def save_fish_data(data):
                 continue
             
             # Добавляем новую запись
-            supabase.table('fish').insert({
-                'name': name,
-                'supplier': 'Рыба'
-            }).execute()
+            try:
+                supabase.table('fish').insert({
+                    'name': name,
+                    'supplier': 'Рыба'
+                }).execute()
+            except Exception as e:
+                logger.error(f"Ошибка добавления рыбы {name}: {e}")
         
         logger.info("Данные о рыбе успешно сохранены в Supabase")
         return True
@@ -401,7 +527,7 @@ def load_chicken_data():
     """Загрузка данных о курице из Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, используем данные по умолчанию")
             return create_default_chicken()
 
         # Получаем все куриные товары
@@ -419,7 +545,18 @@ def load_chicken_data():
             return result
         else:
             # Если данных нет, возвращаем значения по умолчанию
-            return create_default_chicken()
+            default_data = create_default_chicken()
+            # Сохраняем значения по умолчанию в базу
+            for name in default_data:
+                try:
+                    supabase.table('chicken').insert({
+                        'name': name,
+                        'supplier': 'Курица'
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Ошибка сохранения курицы {name}: {e}")
+            
+            return default_data
     except Exception as e:
         logger.error(f"Ошибка загрузки данных о курице: {e}")
         return create_default_chicken()
@@ -428,7 +565,7 @@ def save_chicken_data(data):
     """Сохранение данных о курице в Supabase"""
     try:
         if not supabase:
-            logger.error("Supabase клиент не инициализирован")
+            logger.warning("Supabase клиент не инициализирован, данные не сохранены")
             return False
 
         # Получаем текущие данные
@@ -445,7 +582,10 @@ def save_chicken_data(data):
         # Удаляем записи, которых нет в новых данных
         for name, id in current_data.items():
             if name not in data:
-                supabase.table('chicken').delete().eq('id', id).execute()
+                try:
+                    supabase.table('chicken').delete().eq('id', id).execute()
+                except Exception as e:
+                    logger.error(f"Ошибка удаления курицы {name}: {e}")
         
         # Добавляем новые записи
         for name in data:
@@ -454,10 +594,13 @@ def save_chicken_data(data):
                 continue
             
             # Добавляем новую запись
-            supabase.table('chicken').insert({
-                'name': name,
-                'supplier': 'Курица'
-            }).execute()
+            try:
+                supabase.table('chicken').insert({
+                    'name': name,
+                    'supplier': 'Курица'
+                }).execute()
+            except Exception as e:
+                logger.error(f"Ошибка добавления курицы {name}: {e}")
         
         logger.info("Данные о курице успешно сохранены в Supabase")
         return True
