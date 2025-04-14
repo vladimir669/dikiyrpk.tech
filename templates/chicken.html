@@ -1,63 +1,52 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Курица | Система заказов{% endblock %}
-
-{% block header %}Курица{% endblock %}
+{% block title %}Заказ курицы{% endblock %}
 
 {% block content %}
-<div class="product-list">
-    <div class="product-category">
-        <h3>Курица</h3>
-        {% for item in chicken_items %}
-        <div class="product-item">
-            <input type="checkbox" id="chicken-{{ loop.index }}" data-name="{{ item }}">
-            <label for="chicken-{{ loop.index }}">{{ item }}</label>
-        </div>
-        {% endfor %}
+<h2>Заказ курицы</h2>
+<form method="post">
+    <div class="form-group">
+        <label>ФИО повара:</label>
+        <input type="text" name="name" required>
     </div>
-</div>
+    
+    <div class="form-group">
+        <label>Филиал:</label>
+        <input type="text" name="branch" required>
+    </div>
+    
+    <div class="form-group">
+        <label>Дата заполнения:</label>
+        <input type="date" name="date" required>
+    </div>
+    
+    <div class="form-group">
+        <label>Дата заявки:</label>
+        <input type="date" name="target_date" required>
+    </div>
 
-<button id="orderBtn" class="order-btn">Отправить заказ</button>
-{% endblock %}
+    <table>
+        <thead>
+            <tr>
+                <th>Товар</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>{{ product }}</td>
+                <td>
+                    <input type="text" name="{{ product }}" class="quantity-input">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-{% block script %}
-document.getElementById('orderBtn').addEventListener('click', function() {
-    var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-    var selectedItems = [];
-    
-    checkboxes.forEach(function(checkbox) {
-        selectedItems.push(checkbox.dataset.name);
-    });
-    
-    if (selectedItems.length === 0) {
-        alert('Выберите хотя бы один товар');
-        return;
-    }
-    
-    fetch('/order', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            items: selectedItems
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Заказ успешно отправлен');
-            // Снимаем выделение со всех чекбоксов
-            checkboxes.forEach(function(checkbox) {
-                checkbox.checked = false;
-            });
-        } else {
-            alert('Ошибка: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Ошибка:', error);
-        alert('Произошла ошибка при отправке заказа');
-    });
-});
+    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+        <button type="submit" name="send" value="1">Отправить заявку</button>
+        <a href="{{ url_for('menu') }}" class="button">Назад</a>
+    </div>
+</form>
 {% endblock %}
