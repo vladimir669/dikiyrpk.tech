@@ -42,13 +42,10 @@
                         <label for="product_{{ product.id }}">{{ product.name }}</label>
                         <div class="product-controls">
                             <input 
-                                type="number" 
+                                type="text" 
                                 id="product_{{ product.id }}" 
                                 name="product_{{ product.id }}" 
-                                min="0" 
-                                value="0"
-                                inputmode="numeric" 
-                                pattern="[0-9]*"
+                                placeholder="например: 2 кг / 1 уп / немного"
                             >
                         </div>
                     </div>
