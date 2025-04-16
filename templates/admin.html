@@ -1,171 +1,40 @@
-{% extends "base.html" %}
-
-{% block title %}Админ-панель{% endblock %}
-
+{% extends 'base.html' %}
 {% block content %}
 <h2>Админ-панель</h2>
+<a href="{{ url_for('logout') }}">Выход</a>
 
-<div class="admin-section">
-    <h3>Изменить пароли</h3>
-    <form method="post" action="{{ url_for('change_password') }}">
-        <div class="form-group">
-            <label>Тип пароля:</label>
-            <select name="password_type" required>
-                <option value="user">Пользовательский</option>
-                <option value="admin">Администраторский</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Новый пароль:</label>
-            <input type="password" name="new_password" required>
-        </div>
-        <button type="submit">Изменить пароль</button>
-    </form>
-</div>
+<h3>Добавить категорию</h3>
+<form method="post" action="{{ url_for('add_category') }}">
+    <input name="name" placeholder="Название категории">
+    <button type="submit">Добавить</button>
+</form>
 
-<div class="admin-section">
-    <h3>Управление разделами</h3>
-    <div class="admin-grid">
-        <div class="admin-card">
-            <h4>Добавить раздел</h4>
-            <form method="post" action="{{ url_for('add_section') }}">
-                <div class="form-group">
-                    <label>Название раздела:</label>
-                    <input type="text" name="section_name" required>
-                </div>
-                <button type="submit">Добавить</button>
-            </form>
-        </div>
-        
-        <div class="admin-card">
-            <h4>Удалить раздел</h4>
-            <form method="post" action="{{ url_for('delete_section') }}">
-                <div class="form-group">
-                    <label>Выберите раздел:</label>
-                    <select name="section_name" required>
-                        {% for section in products_data %}
-                        <option value="{{ section }}">{{ section }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit">Удалить</button>
-            </form>
-        </div>
-    </div>
-</div>
+<h3>Добавить продукт</h3>
+<form method="post" action="{{ url_for('add_product') }}">
+    <input name="name" placeholder="Название продукта">
+    <select name="category_id">
+        {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Добавить</button>
+</form>
 
-<div class="admin-section">
-    <h3>Управление товарами</h3>
-    <div class="admin-grid">
-        <div class="admin-card">
-            <h4>Добавить товар</h4>
-            <form method="post" action="{{ url_for('add_product') }}">
-                <div class="form-group">
-                    <label>Выберите раздел:</label>
-                    <select name="section_name" required>
-                        {% for section in products_data %}
-                        <option value="{{ section }}">{{ section }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Название товара:</label>
-                    <input type="text" name="product_name" required>
-                </div>
-                <button type="submit">Добавить</button>
-            </form>
-        </div>
-        
-        <div class="admin-card">
-            <h4>Удалить товар</h4>
-            <form method="post" action="{{ url_for('delete_product') }}">
-                <div class="form-group">
-                    <label>Выберите раздел:</label>
-                    <select name="section_name" id="section-select" required>
-                        {% for section in products_data %}
-                        <option value="{{ section }}">{{ section }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Выберите товар:</label>
-                    <select name="product_name" required>
-                        {% for section, products in products_data.items() %}
-                            {% for product in products %}
-                            <option value="{{ product }}" data-section="{{ section }}">{{ product }}</option>
-                            {% endfor %}
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit">Удалить</button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div style="margin-top: 20px; text-align: center;">
-    <a href="{{ url_for('admin_logout') }}" class="button">Выйти</a>
-    <a href="{{ url_for('menu') }}" class="button">Вернуться в меню</a>
-</div>
-
-<style>
-    .admin-section {
-        background-color: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        margin-bottom: 2rem;
-    }
-    
-    .admin-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
-        margin-top: 1rem;
-    }
-    
-    .admin-card {
-        background-color: #f9f9f9;
-        padding: 1.5rem;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-    }
-    
-    @media (max-width: 768px) {
-        .admin-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>
-
-<script>
-    // Фильтрация товаров по выбранному разделу
-    document.addEventListener('DOMContentLoaded', function() {
-        const sectionSelect = document.getElementById('section-select');
-        const productOptions = document.querySelectorAll('select[name="product_name"] option');
-        
-        function filterProducts() {
-            const selectedSection = sectionSelect.value;
-            
-            productOptions.forEach(option => {
-                if (option.dataset.section === selectedSection) {
-                    option.style.display = '';
-                } else {
-                    option.style.display = 'none';
-                }
-            });
-            
-            // Выбрать первый видимый вариант
-            const firstVisible = Array.from(productOptions).find(opt => opt.dataset.section === selectedSection);
-            if (firstVisible) {
-                firstVisible.selected = true;
-            }
-        }
-        
-        if (sectionSelect) {
-            sectionSelect.addEventListener('change', filterProducts);
-            filterProducts(); // Запустить при загрузке страницы
-        }
-    });
-</script>
+{% for category in categories %}
+    <h4>{{ category.name }}
+        <form method="post" action="{{ url_for('delete_category', cat_id=category.id) }}" style="display:inline">
+            <button type="submit">Удалить</button>
+        </form>
+    </h4>
+    <ul>
+        {% for product in products[category.name] %}
+            <li>
+                {{ product.name }}
+                <form method="post" action="{{ url_for('delete_product', product_id=product.id) }}" style="display:inline">
+                    <button type="submit">Удалить</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+{% endfor %}
 {% endblock %}
