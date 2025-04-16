@@ -1,14 +1,71 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Форма заказа</h2>
-<form method="post">
-    {% for category in categories %}
-        <h3>{{ category.name }}</h3>
-        {% for product in products[category.name] %}
-            <label>
-                {{ product.name }}: <input type="text" name="product_{{ product.id }}" inputmode="numeric" pattern="[0-9]*">
-            </label><br>
-        {% endfor %}
-    {% endfor %}
-</form>
+<div class="order-container">
+    <div class="header">
+        <h2>Форма заказа</h2>
+        <div class="actions">
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выход</a>
+        </div>
+    </div>
+    
+    <form method="post" class="order-form">
+        <div class="customer-info">
+            <h3>Информация о клиенте</h3>
+            <div class="form-group">
+                <label for="customer_name">Имя клиента:</label>
+                <input type="text" id="customer_name" name="customer_name" required>
+            </div>
+            <div class="form-group">
+                <label for="customer_phone">Телефон:</label>
+                <input type="tel" id="customer_phone" name="customer_phone" required>
+            </div>
+            <div class="form-group">
+                <label for="customer_address">Адрес доставки:</label>
+                <input type="text" id="customer_address" name="customer_address" required>
+            </div>
+            <div class="form-group">
+                <label for="delivery_time">Время доставки:</label>
+                <input type="datetime-local" id="delivery_time" name="delivery_time">
+            </div>
+            <div class="form-group">
+                <label for="comment">Комментарий к заказу:</label>
+                <textarea id="comment" name="comment" rows="3"></textarea>
+            </div>
+        </div>
+        
+        <div class="products-container">
+            <h3>Выберите товары</h3>
+            {% for category in categories %}
+                <div class="category-section">
+                    <h4>{{ category.name }}</h4>
+                    <div class="products-grid">
+                        {% for product in products if product.categories.name == category.name %}
+                            <div class="product-item">
+                                <label for="product_{{ product.id }}">{{ product.name }}</label>
+                                <div class="product-controls">
+                                    <input 
+                                        type="number" 
+                                        id="product_{{ product.id }}" 
+                                        name="product_{{ product.id }}" 
+                                        min="0" 
+                                        value="0"
+                                        inputmode="numeric" 
+                                        pattern="[0-9]*"
+                                    >
+                                    {% if product.price %}
+                                        <span class="price">{{ product.price }} ₽</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Оформить заказ</button>
+        </div>
+    </form>
+</div>
 {% endblock %}
