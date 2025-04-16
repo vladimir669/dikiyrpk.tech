@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="request-details-container">
+    <div class="header">
+        <h2>Детали заявки #{{ request.id }}</h2>
+        <div class="actions">
+            <a href="{{ url_for('admin') }}" class="btn btn-secondary">Назад к списку</a>
+        </div>
+    </div>
+    
+    <div class="request-info">
+        <div class="info-section">
+            <h3>Информация о заявке</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Повар:</span>
+                    <span class="value">{{ request.cook_name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Филиал:</span>
+                    <span class="value">{{ request.branches.name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Поставщик:</span>
+                    <span class="value">{{ request.suppliers.name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Дата заявки:</span>
+                    <span class="value">{{ request.request_date }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Дата заполнения:</span>
+                    <span class="value">{{ request.fill_date }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Дата создания:</span>
+                    <span class="value">{{ request.created_at }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="request-items">
+        <h3>Товары в заявке</h3>
+        {% if items %}
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Товар</th>
+                        <th>Количество</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td>{{ item.products.name }}</td>
+                            <td>{{ item.quantity }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Нет товаров в заявке</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
