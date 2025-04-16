@@ -1,11 +1,86 @@
 from flask import Flask, render_template, request, redirect, session, url_for, flash, jsonify
-from supabase_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
-from config import USER_PASSWORD, ADMIN_PASSWORD, BOT_TOKEN, GROUP_ID
 import os
 from datetime import datetime
 import requests
 import json
 import logging
+
+# Импортируем модули Supabase
+try:
+    from supabase_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
+    from config import USER_PASSWORD, ADMIN_PASSWORD, BOT_TOKEN, GROUP_ID
+except ImportError:
+    # Если модуль не найден, создаем его
+    import sys
+    import os
+    
+    # Создаем файл supabase_config.py, если его нет
+    if not os.path.exists('supabase_config.py'):
+        with open('supabase_config.py', 'w') as f:
+            f.write('''
+from supabase import create_client
+import os
+import logging
+
+logger = logging.getLogger('app')
+
+# Получаем URL и ключ Supabase из переменных окружения или используем значения по умолчанию
+url = os.environ.get("SUPABASE_URL", "https://wxlrektensoxrnwipsbs.supabase.co")
+key = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4bHJla3RlbnNveHJud2lwc2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDU1NDk3NCwiZXhwIjoyMDYwMTMwOTc0fQ.45X6uk_ZfNvwLjmBOum2s3JZnm6KehUvImzzec0iWMc")
+
+try:
+    supabase = create_client(url, key)
+    logger.info("Supabase клиент успешно инициализирован")
+except Exception as e:
+    logger.error(f"Ошибка при инициализации Supabase: {e}")
+    raise
+
+def get_suppliers():
+    """Получить всех поставщиков"""
+    response = supabase.table("suppliers").select("*").order("name").execute()
+    return response.data
+
+def get_products_by_supplier(supplier_id):
+    """Получить все продукты по поставщику"""
+    response = supabase.table("products").select("*").eq("supplier_id", supplier_id).order("name").execute()
+    return response.data
+
+def get_all_products():
+    """Получить все продукты"""
+    response = supabase.table("products").select("*, suppliers(name)").order("name").execute()
+    return response.data
+
+def get_request_with_items(request_id):
+    """Получить заявку с товарами"""
+    request = supabase.table("requests").select("*, suppliers(name), branches(name)").eq("id", request_id).single().execute()
+    items = supabase.table("request_items").select("*, products(*)").eq("request_id", request_id).execute()
+    
+    return {
+        "request": request.data,
+        "items": items.data
+    }
+''')
+    
+    # Создаем файл config.py, если его нет
+    if not os.path.exists('config.py'):
+        with open('config.py', 'w') as f:
+            f.write('''
+# Пароль для обычных пользователей
+USER_PASSWORD = "1234"
+
+# Пароль для администратора
+ADMIN_PASSWORD = "admin"
+
+# Telegram Bot API Token
+BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
+
+# Telegram Group ID
+GROUP_ID = '-1002633190524'
+''')
+    
+    # Перезагружаем модули
+    from supabase_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
+    from config import USER_PASSWORD, ADMIN_PASSWORD, BOT_TOKEN, GROUP_ID
 
 # Настройка логирования
 logging.basicConfig(
@@ -51,6 +126,21 @@ def login():
             return redirect(url_for('admin'))
         return render_template('login.html', error='Неверный пароль')
     return render_template('login.html')
+
+@app.route('/admin_login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        try:
+            password = request.form.get('password')
+            if password == ADMIN_PASSWORD:
+                session['admin'] = True
+                return redirect(url_for('admin'))
+            else:
+                flash('Неверный пароль', 'error')
+        except Exception as e:
+            logger.error(f"Ошибка входа в админ-панель: {e}")
+            flash('Произошла ошибка при входе', 'error')
+    return render_template('admin_login.html')
 
 @app.route('/logout')
 def logout():
@@ -448,34 +538,4 @@ def import_default_data():
             "Салфетки бумажные белые 24х24 400шт",
             "Контейнер ПС-115 500мл с крышкой",
             "Контейнер ПС-115 750мл с крышкой",
-            "Пакет фасовочный ПНД 24х37",
-            "Пакет фасовочный ПНД 30х40",
-            "Пленка пищевая 300мм х 200м",
-            "Фольга алюминиевая 300мм х 100м",
-            "Пакеты для мусора 120л (10шт)"
-        ],
-        "Рыба": [
-            "Филе форели охл.",
-            "Лосось атлантический охл.",
-            "Тунец филе охл."
-        ]
-    }
-    
-    # Импортируем продукты
-    for supplier_name, products_list in default_products.items():
-        supplier_id = suppliers[supplier_name]
-        for product_name in products_list:
-            # Проверяем, существует ли уже такой продукт
-            result = supabase.table("products").select("*").eq("name", product_name).execute()
-            if not result.data:
-                supabase.table("products").insert({
-                    "name": product_name,
-                    "supplier_id": supplier_id
-                }).execute()
-    
-    flash('Данные по умолчанию успешно импортированы', 'success')
-    return redirect(url_for('admin'))
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+            "Пакет фасовоч
