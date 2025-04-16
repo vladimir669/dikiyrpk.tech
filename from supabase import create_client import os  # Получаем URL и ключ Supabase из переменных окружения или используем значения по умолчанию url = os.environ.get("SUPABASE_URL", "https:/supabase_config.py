@@ -1,11 +1,19 @@
 from supabase import create_client
 import os
+import logging
+
+logger = logging.getLogger('app')
 
 # Получаем URL и ключ Supabase из переменных окружения или используем значения по умолчанию
 url = os.environ.get("SUPABASE_URL", "https://wxlrektensoxrnwipsbs.supabase.co")
 key = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4bHJla3RlbnNveHJud2lwc2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDU1NDk3NCwiZXhwIjoyMDYwMTMwOTc0fQ.45X6uk_ZfNvwLjmBOum2s3JZnm6KehUvImzzec0iWMc")
 
-supabase = create_client(url, key)
+try:
+    supabase = create_client(url, key)
+    logger.info("Supabase клиент успешно инициализирован")
+except Exception as e:
+    logger.error(f"Ошибка при инициализации Supabase: {e}")
+    raise
 
 def get_suppliers():
     """Получить всех поставщиков"""
