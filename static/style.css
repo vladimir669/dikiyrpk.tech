@@ -147,6 +147,11 @@ textarea {
   margin-top: 20px;
 }
 
+.login-links {
+  margin-top: 15px;
+  text-align: center;
+}
+
 /* Меню */
 .menu-container {
   background-color: white;
