@@ -1,5 +1,172 @@
 {% extends 'base.html' %}
 {% block content %}
+<div class="admin-container">
+    <div class="header">
+        <h2>Админ-панель</h2>
+        <div class="actions">
+            <form method="post" action="{{ url_for('import_default_data') }}" class="inline-form">
+                <button type="submit" class="btn btn-secondary">Импорт данных</button>
+            </form>
+            <a href="{{ url_for('test_telegram') }}" class="btn btn-secondary">Тест Telegram</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline">Выход</a>
+        </div>
+    </div>
+    
+    <div class="admin-sections">
+        <div class="section">
+            <h3>Заявки</h3>
+            <div class="requests-list">
+                {% if requests %}
+                    <table class="requests-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Повар</th>
+                                <th>Филиал</th>
+                                <th>Поставщик</th>
+                                <th>Дата заявки</th>
+                                <th>Дата создания</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in requests %}
+                                <tr>
+                                    <td>{{ request.id }}</td>
+                                    <td>{{ request.cook_name }}</td>
+                                    <td>{{ request.branches.name }}</td>
+                                    <td>{{ request.suppliers.name }}</td>
+                                    <td>{{ request.request_date }}</td>
+                                    <td>{{ request.created_at }}</td>
+                                    <td>
+                                        <a href="{{ url_for('view_request', request_id=request.id) }}" class="btn btn-small">
+                                            Просмотр
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>Нет заявок</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Управление поставщиками</h3>
+            <form method="post" action="{{ url_for('add_supplier') }}" class="add-form">
+                <div class="form-group">
+                    <input name="name" placeholder="Название поставщика" required>
+                    <button type="submit" class="btn btn-primary">Добавить поставщика</button>
+                </div>
+            </form>
+            
+            <div class="suppliers-list">
+                {% for supplier in suppliers %}
+                    <div class="supplier-item">
+                        <span class="supplier-name">{{ supplier.name }}</span>
+                        <form method="post" action="{{ url_for('delete_supplier', supplier_id=supplier.id) }}" class="inline-form">
+                            <button type="submit" class="btn btn-danger btn-small">Удалить</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Управление филиалами</h3>
+            <form method="post" action="{{ url_for('add_branch') }}" class="add-form">
+                <div class="form-group">
+                    <input name="name" placeholder="Название филиала" required>
+                    <button type="submit" class="btn btn-primary">Добавить филиал</button>
+                </div>
+            </form>
+            
+            <div class="branches-list">
+                {% for branch in branches %}
+                    <div class="branch-item">
+                        <span class="branch-name">{{ branch.name }}</span>
+                        <form method="post" action="{{ url_for('delete_branch', branch_id=branch.id) }}" class="inline-form">
+                            <button type="submit" class="btn btn-danger btn-small">Удалить</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Управление товарами</h3>
+            <form method="post" action="{{ url_for('add_product') }}" class="add-form">
+                <div class="form-group">
+                    <input name="name" placeholder="Название товара" required>
+                    <select name="supplier_id" required>
+                        <option value="">Выберите поставщика</option>
+                        {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary">Добавить товар</button>
+                </div>
+            </form>
+            
+            <div class="products-by-supplier">
+                {% for supplier in suppliers %}
+                    <div class="supplier-products">
+                        <h4>{{ supplier.name }}</h4>
+                        {% set supplier_products = [] %}
+                        {% for product in products %}
+                            {% if product.suppliers.name == supplier.name %}
+                                {% set supplier_products = supplier_products + [product] %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if supplier_products %}
+                            <ul class="products-list">
+                                {% for product in supplier_products %}
+                                    <li class="product-item">
+                                        <span class="product-name">{{ product.name }}</span>
+                                        <form method="post" action="{{ url_for('delete_product', product_id=product.id) }}" class="inline-form">
+                                            <button type="submit" class="btn btn-danger btn-small">Удалить</button>
+                                        </form>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>Нет товаров у этого поставщика</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Изменение паролей</h3>
+            <div class="password-forms">
+                <form method="post" action="{{ url_for('change_password') }}" class="password-form">
+                    <h4>Пароль пользователя</h4>
+                    <div class="form-group">
+                        <input type="hidden" name="password_type" value="user">
+                        <input type="password" name="new_password" placeholder="Новый пароль" required>
+                        <button type="submit" class="btn btn-primary">Изменить</button>
+                    </div>
+                </form>
+                
+                <form method="post" action="{{ url_for('change_password') }}" class="password-form">
+                    <h4>Пароль администратора</h4>
+                    <div class="form-group">
+                        <input type="hidden" name="password_type" value="admin">
+                        <input type="password" name="new_password" placeholder="Новый пароль" required>
+                        <button type="submit" class="btn btn-primary">Изменить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
 <h2>Админ-панель</h2>
 <a href="{{ url_for('logout') }}">Выход</a>
 
