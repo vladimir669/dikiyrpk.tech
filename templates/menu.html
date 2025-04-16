@@ -1,28 +1,32 @@
-{% extends "base.html" %}
-
-{% block title %}Главное меню{% endblock %}
-
+{% extends 'base.html' %}
 {% block content %}
-<h2>Главное меню</h2>
-<div class="menu-grid">
-    <div class="menu-item">
-        <h3>Продукты</h3>
-        <a href="{{ url_for('products') }}" class="button">Перейти</a>
+<div class="menu-container">
+    <div class="header">
+        <h2>Меню заявок</h2>
+        <div class="actions">
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выход</a>
+        </div>
     </div>
-    <div class="menu-item">
-        <h3>Хоз. товары</h3>
-        <a href="{{ url_for('hoz') }}" class="button">Перейти</a>
+    
+    <div class="menu-grid">
+        <a href="{{ url_for('fish_form') }}" class="menu-item">
+            <div class="menu-icon">🐟</div>
+            <div class="menu-title">Рыба</div>
+        </a>
+        
+        <a href="{{ url_for('hoz_form') }}" class="menu-item">
+            <div class="menu-icon">🧹</div>
+            <div class="menu-title">Хоз. товары</div>
+        </a>
+        
+        {% for supplier in get_suppliers() %}
+            {% if supplier.name != "Рыба" and supplier.name != "Хоз. товары" %}
+                <a href="{{ url_for('supplier_form', supplier_id=supplier.id) }}" class="menu-item">
+                    <div class="menu-icon">📦</div>
+                    <div class="menu-title">{{ supplier.name }}</div>
+                </a>
+            {% endif %}
+        {% endfor %}
     </div>
-    <div class="menu-item">
-        <h3>Рыба</h3>
-        <a href="{{ url_for('fish') }}" class="button">Перейти</a>
-    </div>
-    <div class="menu-item">
-        <h3>Админ-панель</h3>
-        <a href="{{ url_for('admin') }}" class="button">Перейти</a>
-    </div>
-</div>
-<div style="margin-top: 20px; text-align: center;">
-    <a href="{{ url_for('logout') }}" class="button">Выйти</a>
 </div>
 {% endblock %}
