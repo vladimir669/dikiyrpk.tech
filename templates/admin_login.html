@@ -1,19 +1,17 @@
-{% extends "base.html" %}
-
-{% block title %}Вход в админ-панель{% endblock %}
-
+{% extends 'base.html' %}
 {% block content %}
 <div class="login-container">
     <h2>Вход в админ-панель</h2>
-    <form method="post" action="{{ url_for('admin_login') }}">
+    <form method="post" class="login-form">
         <div class="form-group">
-            <label for="password">Пароль администратора:</label>
-            <input type="password" id="password" name="password" required>
+            <input name="password" type="password" placeholder="Введите пароль администратора" required>
         </div>
-        <button type="submit">Войти</button>
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Войти</button>
+        </div>
     </form>
-    <div style="margin-top: 20px; text-align: center;">
-        <a href="{{ url_for('menu') }}" class="button">Назад</a>
+    <div class="login-links">
+        <a href="{{ url_for('login') }}">Вернуться на страницу входа</a>
     </div>
 </div>
 {% endblock %}
