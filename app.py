@@ -5,18 +5,22 @@ import requests
 import json
 import logging
 
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('app')
+
 # Импортируем модули Supabase
 try:
-    from supabase_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
     from config import USER_PASSWORD, ADMIN_PASSWORD, BOT_TOKEN, GROUP_ID
-except ImportError:
+    from supabase_py_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
+except ImportError as e:
+    logger.error(f"Ошибка импорта: {e}")
     # Если модуль не найден, создаем его
-    import sys
-    import os
-    
-    # Создаем файл supabase_config.py, если его нет
-    if not os.path.exists('supabase_config.py'):
-        with open('supabase_config.py', 'w') as f:
+    if not os.path.exists('supabase_py_config.py'):
+        with open('supabase_py_config.py', 'w') as f:
             f.write('''
 from supabase import create_client
 import os
@@ -79,18 +83,489 @@ GROUP_ID = '-1002633190524'
 ''')
     
     # Перезагружаем модули
-    from supabase_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
     from config import USER_PASSWORD, ADMIN_PASSWORD, BOT_TOKEN, GROUP_ID
-
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('app')
+    from supabase_py_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# Создаем директорию static, если её нет
+if not os.path.exists('static'):
+    os.makedirs('static')
+
+# Создаем CSS файл, если его нет
+if not os.path.exists('static/style.css'):
+    with open('static/style.css', 'w') as f:
+        f.write('''
+/* Основные стили */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Roboto", Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f5f5;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Формы */
+.form-group {
+  margin-bottom: 15px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 15px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  text-align: center;
+}
+
+.btn-primary {
+  background-color: #0066cc;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+}
+
+.btn-small {
+  padding: 5px 10px;
+  font-size: 14px;
+}
+
+.btn:hover {
+  opacity: 0.9;
+  text-decoration: none;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: #0066cc;
+  border: 1px solid #0066cc;
+}
+
+.btn-outline:hover {
+  background-color: #0066cc;
+  color: white;
+}
+
+/* Сообщения */
+.flash-messages {
+  margin-bottom: 20px;
+}
+
+.flash-message {
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+}
+
+.flash-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.flash-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.flash-message.warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.error-message {
+  color: #dc3545;
+  margin-top: 10px;
+}
+
+/* Страница входа */
+.login-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-form {
+  margin-top: 20px;
+}
+
+.login-links {
+  margin-top: 15px;
+  text-align: center;
+}
+
+/* Меню */
+.menu-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  text-decoration: none;
+  color: #333;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.menu-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+}
+
+.menu-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.menu-title {
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Форма заявки */
+.form-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.form-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.products-container {
+  margin-bottom: 30px;
+}
+
+.products-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.product-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+
+.product-controls {
+  display: flex;
+  align-items: center;
+}
+
+.product-controls input {
+  width: 80px;
+}
+
+.form-actions {
+  margin-top: 30px;
+  text-align: right;
+}
+
+/* Админ-панель */
+.admin-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.admin-sections {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+}
+
+.section {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.add-form {
+  margin-bottom: 20px;
+}
+
+.add-form .form-group {
+  display: flex;
+  gap: 10px;
+}
+
+.add-form input,
+.add-form select {
+  flex: 1;
+}
+
+.add-form button {
+  white-space: nowrap;
+}
+
+.suppliers-list,
+.branches-list,
+.products-list {
+  list-style: none;
+}
+
+.supplier-item,
+.branch-item,
+.product-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+
+.inline-form {
+  display: inline;
+}
+
+.supplier-name,
+.branch-name,
+.product-name {
+  font-weight: bold;
+}
+
+.supplier-products {
+  margin-bottom: 20px;
+}
+
+.password-forms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.password-form {
+  padding: 15px;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+
+/* Таблицы */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+th,
+td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+/* Статусы заказов */
+.status {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.status-new {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.status-processing {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-delivering {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-completed {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-cancelled {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* Детали заявки */
+.request-details-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.request-info {
+  margin-bottom: 30px;
+}
+
+.info-section {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.info-item {
+  margin-bottom: 10px;
+}
+
+.label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+  color: #666;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .products-list {
+    grid-template-columns: 1fr;
+  }
+
+  .add-form .form-group {
+    flex-direction: column;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .password-forms {
+    grid-template-columns: 1fr;
+  }
+}
+''')
 
 # Инициализация бота
 logger.info("Бот успешно инициализирован")
@@ -538,4 +1013,34 @@ def import_default_data():
             "Салфетки бумажные белые 24х24 400шт",
             "Контейнер ПС-115 500мл с крышкой",
             "Контейнер ПС-115 750мл с крышкой",
-            "Пакет фасовоч
+            "Пакет фасовочный ПНД 24х37",
+            "Пакет фасовочный ПНД 30х40",
+            "Пленка пищевая 300мм х 200м",
+            "Фольга алюминиевая 300мм х 100м",
+            "Пакеты для мусора 120л (10шт)"
+        ],
+        "Рыба": [
+            "Филе форели охл.",
+            "Лосось атлантический охл.",
+            "Тунец филе охл."
+        ]
+    }
+    
+    # Импортируем продукты
+    for supplier_name, products_list in default_products.items():
+        supplier_id = suppliers[supplier_name]
+        for product_name in products_list:
+            # Проверяем, существует ли уже такой продукт
+            result = supabase.table("products").select("*").eq("name", product_name).execute()
+            if not result.data:
+                supabase.table("products").insert({
+                    "name": product_name,
+                    "supplier_id": supplier_id
+                }).execute()
+    
+    flash('Данные по умолчанию успешно импортированы', 'success')
+    return redirect(url_for('admin'))
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
