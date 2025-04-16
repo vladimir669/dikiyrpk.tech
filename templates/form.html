@@ -1,27 +1,14 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Заявка - {{ supplier }}</title>
-</head>
-<body>
-    <h2>Заявка - {{ supplier }}</h2>
-    <form method="post">
-        <label>Имя повара:</label><br>
-        <input type="text" name="filled_by" required><br><br>
-
-        <label>Дата, на которую заявка:</label><br>
-        <input type="date" name="for_date" required><br><br>
-
-        <label>Филиал:</label><br>
-        <input type="text" name="branch" required><br><br>
-
-        {% for item in items %}
-            <label>{{ item }}:</label>
-            <input type="text" name="{{ item }}"><br>
+{% extends 'base.html' %}
+{% block content %}
+<h2>Форма заказа</h2>
+<form method="post">
+    {% for category in categories %}
+        <h3>{{ category.name }}</h3>
+        {% for product in products[category.name] %}
+            <label>
+                {{ product.name }}: <input type="text" name="product_{{ product.id }}" inputmode="numeric" pattern="[0-9]*">
+            </label><br>
         {% endfor %}
-
-        <br>
-        <button type="submit">Отправить</button>
-    </form>
-</body>
-</html>
+    {% endfor %}
+</form>
+{% endblock %}
