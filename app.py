@@ -658,12 +658,37 @@ def supplier_form(supplier_id):
         request_date = request.form.get('request_date')
         branch_id = request.form.get('branch_id')
         
+        # Проверяем, что все обязательные поля заполнены
+        if not cook_name or not fill_date or not request_date or not branch_id:
+            flash('Пожалуйста, заполните все обязательные поля формы', 'error')
+            return render_template('supplier_form.html', 
+                                  supplier=supplier, 
+                                  products=products, 
+                                  branches=branches, 
+                                  today=datetime.now().strftime('%Y-%m-%d'))
+        
         # Получаем название филиала
         branch_name = "Неизвестный филиал"
         for branch in branches:
             if str(branch['id']) == branch_id:
                 branch_name = branch['name']
                 break
+        
+        # Проверяем, выбран ли хотя бы один товар
+        has_products = False
+        for product in products:
+            quantity = request.form.get(f'product_{product["id"]}')
+            if quantity and quantity.strip() and quantity.strip().isdigit() and int(quantity.strip()) > 0:
+                has_products = True
+                break
+                
+        if not has_products:
+            flash('Пожалуйста, выберите хотя бы один товар', 'error')
+            return render_template('supplier_form.html', 
+                                  supplier=supplier, 
+                                  products=products, 
+                                  branches=branches, 
+                                  today=datetime.now().strftime('%Y-%m-%d'))
         
         # Создаем новую заявку
         request_data = {
@@ -686,16 +711,16 @@ def supplier_form(supplier_id):
             
             for product in products:
                 quantity = request.form.get(f'product_{product["id"]}')
-                if quantity and quantity.isdigit() and int(quantity) > 0:
+                if quantity and quantity.strip() and quantity.strip().isdigit() and int(quantity.strip()) > 0:
                     request_items.append({
                         "request_id": request_id,
                         "product_id": product["id"],
-                        "quantity": int(quantity)
+                        "quantity": int(quantity.strip())
                     })
                     
                     selected_products.append({
                         "name": product["name"],
-                        "quantity": int(quantity)
+                        "quantity": int(quantity.strip())
                     })
             
             if request_items:
@@ -775,8 +800,20 @@ def admin():
     if not session.get('admin'):
         return redirect(url_for('login'))
     
+    # Получаем всех поставщиков
     suppliers = get_suppliers()
-    products = get_all_products()
+    
+    # Получаем все продукты с информацией о поставщиках
+    products_response = supabase.table("products").select("*, suppliers(id, name)").order("name").execute()
+    products = products_response.data
+    
+    # Группируем продукты по поставщикам для удобного отображения
+    products_by_supplier = {}
+    for product in products:
+        supplier_id = product['supplier_id']
+        if supplier_id not in products_by_supplier:
+            products_by_supplier[supplier_id] = []
+        products_by_supplier[supplier_id].append(product)
     
     # Получаем все филиалы
     branches_response = supabase.table("branches").select("*").order("name").execute()
@@ -791,6 +828,7 @@ def admin():
     return render_template('admin.html', 
                           suppliers=suppliers, 
                           products=products, 
+                          products_by_supplier=products_by_supplier,
                           branches=branches, 
                           requests=requests)
 
@@ -871,6 +909,15 @@ def change_password():
                 else:
                     f.write(line)
         
+        # Перезагружаем модуль config для применения изменений
+        import importlib
+        import config
+        importlib.reload(config)
+        
+        # Обновляем глобальную переменную
+        global USER_PASSWORD
+        USER_PASSWORD = config.USER_PASSWORD
+        
         flash('Пароль пользователя изменен', 'success')
     
     elif password_type == 'admin':
@@ -884,6 +931,15 @@ def change_password():
                     f.write(f'ADMIN_PASSWORD = "{new_password}"\n')
                 else:
                     f.write(line)
+        
+        # Перезагружаем модуль config для применения изменений
+        import importlib
+        import config
+        importlib.reload(config)
+        
+        # Обновляем глобальную переменную
+        global ADMIN_PASSWORD
+        ADMIN_PASSWORD = config.ADMIN_PASSWORD
         
         flash('Пароль администратора изменен', 'success')
     
