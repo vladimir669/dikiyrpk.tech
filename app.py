@@ -5,9 +5,20 @@ import os
 from datetime import datetime
 import requests
 import json
+import logging
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('app')
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# Инициализация бота
+logger.info("Бот успешно инициализирован")
 
 def send_to_telegram(message):
     """Отправка сообщения в Telegram группу"""
@@ -21,7 +32,7 @@ def send_to_telegram(message):
         response = requests.post(url, json=payload)
         return response.json()
     except Exception as e:
-        print(f"Ошибка при отправке в Telegram: {e}")
+        logger.error(f"Ошибка при отправке в Telegram: {e}")
         return None
 
 @app.route('/')
@@ -50,7 +61,10 @@ def logout():
 def menu():
     if not session.get('user') and not session.get('admin'):
         return redirect(url_for('login'))
-    return render_template('menu.html')
+    
+    # Получаем всех поставщиков
+    suppliers = get_suppliers()
+    return render_template('menu.html', suppliers=suppliers)
 
 @app.route('/supplier/<supplier_id>', methods=['GET', 'POST'])
 def supplier_form(supplier_id):
