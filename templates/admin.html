@@ -114,16 +114,9 @@
                 {% for supplier in suppliers %}
                     <div class="supplier-products">
                         <h4>{{ supplier.name }}</h4>
-                        {% set supplier_products = [] %}
-                        {% for product in products %}
-                            {% if product.suppliers.name == supplier.name %}
-                                {% set supplier_products = supplier_products + [product] %}
-                            {% endif %}
-                        {% endfor %}
-                        
-                        {% if supplier_products %}
+                        {% if products_by_supplier and supplier.id in products_by_supplier and products_by_supplier[supplier.id]|length > 0 %}
                             <ul class="products-list">
-                                {% for product in supplier_products %}
+                                {% for product in products_by_supplier[supplier.id] %}
                                     <li class="product-item">
                                         <span class="product-name">{{ product.name }}</span>
                                         <form method="post" action="{{ url_for('delete_product', product_id=product.id) }}" class="inline-form">
