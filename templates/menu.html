@@ -19,7 +19,7 @@
             <div class="menu-title">Хоз. товары</div>
         </a>
         
-        {% for supplier in get_suppliers() %}
+        {% for supplier in suppliers %}
             {% if supplier.name != "Рыба" and supplier.name != "Хоз. товары" %}
                 <a href="{{ url_for('supplier_form', supplier_id=supplier.id) }}" class="menu-item">
                     <div class="menu-icon">📦</div>
