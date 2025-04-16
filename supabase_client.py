@@ -1,12 +1,59 @@
 from supabase import create_client
+import os
+import logging
 
-url = "https://wxlrektensoxrnwipsbs.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4bHJla3RlbnNveHJud2lwc2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDU1NDk3NCwiZXhwIjoyMDYwMTMwOTc0fQ.45X6uk_ZfNvwLjmBOum2s3JZnm6KehUvImzzec0iWMc"
+logger = logging.getLogger('app')
 
-supabase = create_client(url, key)
+# Получаем URL и ключ Supabase из переменных окружения или используем значения по умолчанию
+url = os.environ.get("SUPABASE_URL", "https://wxlrektensoxrnwipsbs.supabase.co")
+key = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")  # укорочен для читаемости
 
-def get_categories():
-    return supabase.table("categories").select("*").execute().data
+try:
+    supabase = create_client(url, key)
+    logger.info("Supabase клиент успешно инициализирован")
+except Exception as e:
+    logger.error(f"Ошибка при инициализации Supabase: {e}")
+    raise
 
-def get_products_by_category(cat_id):
-    return supabase.table("products").select("*").eq("category_id", cat_id).execute().data
+# Получение всех поставщиков
+def get_suppliers():
+    try:
+        response = supabase.table("suppliers").select("*").order("name").execute()
+        return response.data
+    except Exception as e:
+        logger.error(f"Ошибка получения поставщиков: {e}")
+        return []
+
+# Получение всех продуктов поставщика
+def get_products_by_supplier(supplier_id):
+    try:
+        response = supabase.table("products").select("*").eq("supplier_id", supplier_id).order("name").execute()
+        return response.data
+    except Exception as e:
+        logger.error(f"Ошибка получения продуктов для поставщика {supplier_id}: {e}")
+        return []
+
+# Получение всех продуктов с названием поставщика
+def get_all_products():
+    try:
+        response = supabase.table("products").select("*, suppliers(name)").order("name").execute()
+        return response.data
+    except Exception as e:
+        logger.error(f"Ошибка получения всех продуктов: {e}")
+        return []
+
+# Получение одной заявки с товарами
+def get_request_with_items(request_id):
+    try:
+        request = supabase.table("requests").select("*, suppliers(name), branches(name)").eq("id", request_id).single().execute()
+        items = supabase.table("request_items").select("*, products(*)").eq("request_id", request_id).execute()
+        return {
+            "request": request.data,
+            "items": items.data
+        }
+    except Exception as e:
+        logger.error(f"Ошибка получения заявки {request_id}: {e}")
+        return {
+            "request": None,
+            "items": []
+        }
