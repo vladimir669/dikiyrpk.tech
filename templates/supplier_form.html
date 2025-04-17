@@ -1,5 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
+<style>
+/* Убираем стрелки у полей ввода чисел */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+input[type=number] {
+    -moz-appearance: textfield; /* Firefox */
+}
+</style>
+
 <div class="form-container">
 <div class="header">
     <h2>Заявка на {{ supplier.name }}</h2>
@@ -43,11 +55,12 @@
                 <div class="product-item">
                     <span class="product-name">{{ product.name }}</span>
                     <div class="product-controls">
-                        <input type="number" 
+                        <input type="text" 
                                id="product_{{ product.id }}" 
                                name="product_{{ product.id }}" 
-                               min="0" 
                                value="0" 
+                               pattern="[0-9]*"
+                               inputmode="numeric"
                                class="product-quantity">
                     </div>
                 </div>
