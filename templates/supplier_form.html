@@ -1,61 +1,63 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="form-container">
-    <div class="header">
-        <h2>Заявка: {{ supplier.name }}</h2>
-        <div class="actions">
-            <a href="{{ url_for('menu') }}" class="btn btn-secondary">Назад в меню</a>
-            <a href="{{ url_for('logout') }}" class="btn btn-outline">Выход</a>
+<div class="header">
+    <h2>Заявка на {{ supplier.name }}</h2>
+    <div class="actions">
+        <a href="{{ url_for('menu') }}" class="btn btn-outline">Назад</a>
+    </div>
+</div>
+
+<form id="orderForm" method="post" action="{{ url_for('supplier_form', supplier_id=supplier.id) }}">
+    <div class="form-header">
+        <div class="form-group">
+            <label for="cook_name">Имя повара:</label>
+            <input type="text" id="cook_name" name="cook_name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="branch_id">Филиал:</label>
+            <select id="branch_id" name="branch_id" required>
+                <option value="">Выберите филиал</option>
+                {% for branch in branches %}
+                    <option value="{{ branch.id }}">{{ branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="fill_date">Дата заполнения:</label>
+            <input type="date" id="fill_date" name="fill_date" value="{{ today }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="request_date">Дата заявки:</label>
+            <input type="date" id="request_date" name="request_date" value="{{ today }}" required>
         </div>
     </div>
     
-    <form method="post" class="request-form">
-        <div class="form-header">
-            <div class="form-group">
-                <label for="cook_name">Имя повара:</label>
-                <input type="text" id="cook_name" name="cook_name" required>
-            </div>
-            <div class="form-group">
-                <label for="fill_date">Дата заполнения:</label>
-                <input type="date" id="fill_date" name="fill_date" value="{{ today }}" required>
-            </div>
-            <div class="form-group">
-                <label for="request_date">Дата заявки:</label>
-                <input type="date" id="request_date" name="request_date" value="{{ today }}" required>
-            </div>
-            <div class="form-group">
-                <label for="branch_id">Филиал:</label>
-                <select id="branch_id" name="branch_id" required>
-                    <option value="">Выберите филиал</option>
-                    {% for branch in branches %}
-                        <option value="{{ branch.id }}">{{ branch.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        
-        <div class="products-container">
-            <h3>Выберите товары</h3>
-            <div class="products-list">
-                {% for product in products %}
-                    <div class="product-item">
-                        <label for="product_{{ product.id }}">{{ product.name }}</label>
-                        <div class="product-controls">
-                            <input 
-                                type="text" 
-                                id="product_{{ product.id }}" 
-                                name="product_{{ product.id }}" 
-                                placeholder="например: 2 кг / 1 уп / немного"
-                            >
-                        </div>
+    <div class="products-container">
+        <h3>Выберите товары:</h3>
+        <div class="products-list">
+            {% for product in products %}
+                <div class="product-item">
+                    <span class="product-name">{{ product.name }}</span>
+                    <div class="product-controls">
+                        <input type="number" 
+                               id="product_{{ product.id }}" 
+                               name="product_{{ product.id }}" 
+                               min="0" 
+                               value="0" 
+                               class="product-quantity">
                     </div>
-                {% endfor %}
-            </div>
+                </div>
+            {% endfor %}
         </div>
-        
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Отправить заявку</button>
-        </div>
-    </form>
+    </div>
+    
+    <div class="form-actions">
+        <button type="submit" id="submitBtn" class="btn btn-primary">Отправить заявку</button>
+    </div>
+</form>
 </div>
 {% endblock %}
