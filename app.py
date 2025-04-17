@@ -704,19 +704,21 @@ def supplier_form(supplier_id):
             selected_products = []
             
             for product in products:
-                quantity = request.form.get(f'product_{product["id"]}')
-                # Проверяем, что значение является числом и больше 0
-                if quantity and quantity.strip() and quantity.strip().isdigit() and int(quantity.strip()) > 0:
-                    request_items.append({
-                        "request_id": request_id,
-                        "product_id": product["id"],
-                        "quantity": int(quantity.strip())
-                    })
-                    
-                    selected_products.append({
-                        "name": product["name"],
-                        "quantity": int(quantity.strip())
-                    })
+                quantity_str = request.form.get(f'product_{product["id"]}')
+                # Проверяем, что значение не пустое и содержит только цифры
+                if quantity_str and quantity_str.strip() and quantity_str.strip().isdigit():
+                    quantity = int(quantity_str.strip())
+                    if quantity > 0:
+                        request_items.append({
+                            "request_id": request_id,
+                            "product_id": product["id"],
+                            "quantity": quantity
+                        })
+                        
+                        selected_products.append({
+                            "name": product["name"],
+                            "quantity": quantity
+                        })
             
             # Добавляем товары в заявку, если они есть
             if request_items:
@@ -892,51 +894,33 @@ def change_password():
     password_type = request.form.get('password_type')
     new_password = request.form.get('new_password')
     
-    if password_type == 'user':
-        # Обновляем пароль пользователя в config.py
+    try:
+        # Читаем текущее содержимое файла config.py
         with open('config.py', 'r') as f:
-            lines = f.readlines()
+            content = f.read()
         
+        # Обновляем содержимое файла в зависимости от типа пароля
+        if password_type == 'user':
+            # Заменяем строку с паролем пользователя
+            content = content.replace(f'USER_PASSWORD = "{USER_PASSWORD}"', f'USER_PASSWORD = "{new_password}"')
+            # Обновляем глобальную переменную
+            global USER_PASSWORD
+            USER_PASSWORD = new_password
+            flash('Пароль пользователя изменен', 'success')
+        elif password_type == 'admin':
+            # Заменяем строку с паролем администратора
+            content = content.replace(f'ADMIN_PASSWORD = "{ADMIN_PASSWORD}"', f'ADMIN_PASSWORD = "{new_password}"')
+            # Обновляем глобальную переменную
+            global ADMIN_PASSWORD
+            ADMIN_PASSWORD = new_password
+            flash('Пароль администратора изменен', 'success')
+        
+        # Записываем обновленное содержимое обратно в файл
         with open('config.py', 'w') as f:
-            for line in lines:
-                if line.startswith('USER_PASSWORD'):
-                    f.write(f'USER_PASSWORD = "{new_password}"\n')
-                else:
-                    f.write(line)
-        
-        # Перезагружаем модуль config для применения изменений
-        import importlib
-        import config
-        importlib.reload(config)
-        
-        # Обновляем глобальную переменную
-        global USER_PASSWORD
-        USER_PASSWORD = config.USER_PASSWORD
-        
-        flash('Пароль пользователя изменен', 'success')
-    
-    elif password_type == 'admin':
-        # Обновляем пароль администратора в config.py
-        with open('config.py', 'r') as f:
-            lines = f.readlines()
-        
-        with open('config.py', 'w') as f:
-            for line in lines:
-                if line.startswith('ADMIN_PASSWORD'):
-                    f.write(f'ADMIN_PASSWORD = "{new_password}"\n')
-                else:
-                    f.write(line)
-        
-        # Перезагружаем модуль config для применения изменений
-        import importlib
-        import config
-        importlib.reload(config)
-        
-        # Обновляем глобальную переменную
-        global ADMIN_PASSWORD
-        ADMIN_PASSWORD = config.ADMIN_PASSWORD
-        
-        flash('Пароль администратора изменен', 'success')
+            f.write(content)
+    except Exception as e:
+        logger.error(f"Ошибка при изменении пароля: {e}")
+        flash(f'Ошибка при изменении пароля: {str(e)}', 'error')
     
     return redirect(url_for('admin'))
 
