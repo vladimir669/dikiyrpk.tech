@@ -14,7 +14,7 @@ logger = logging.getLogger('app')
 
 # Импортируем модули Supabase
 try:
-    from config import USER_PASSWORD, ADMIN_PASSWORD, BOT_TOKEN, GROUP_ID
+    from config import BOT_TOKEN, GROUP_ID
     from supabase_py_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
 except ImportError as e:
     logger.error(f"Ошибка импорта: {e}")
@@ -63,18 +63,32 @@ def get_request_with_items(request_id):
         "request": request.data,
         "items": items.data
     }
+
+def get_password(password_type):
+    """Получить пароль из базы данных"""
+    response = supabase.table("settings").select("value").eq("key", f"{password_type}_password").single().execute()
+    if response.data:
+        return response.data['value']
+    
+    # Если пароль не найден, устанавливаем значение по умолчанию
+    default_password = "1234" if password_type == "user" else "admin"
+    supabase.table("settings").insert({"key": f"{password_type}_password", "value": default_password}).execute()
+    return default_password
+
+def set_password(password_type, new_password):
+    """Установить пароль в базе данных"""
+    response = supabase.table("settings").select("*").eq("key", f"{password_type}_password").execute()
+    if response.data:
+        supabase.table("settings").update({"value": new_password}).eq("key", f"{password_type}_password").execute()
+    else:
+        supabase.table("settings").insert({"key": f"{password_type}_password", "value": new_password}).execute()
+    return True
 ''')
     
     # Создаем файл config.py, если его нет
     if not os.path.exists('config.py'):
         with open('config.py', 'w') as f:
             f.write('''
-# Пароль для обычных пользователей
-USER_PASSWORD = "1234"
-
-# Пароль для администратора
-ADMIN_PASSWORD = "admin"
-
 # Telegram Bot API Token
 BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
 
@@ -83,8 +97,11 @@ GROUP_ID = '-1002633190524'
 ''')
     
     # Перезагружаем модули
-    from config import USER_PASSWORD, ADMIN_PASSWORD, BOT_TOKEN, GROUP_ID
+    from config import BOT_TOKEN, GROUP_ID
     from supabase_py_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
+
+# Импортируем функции для работы с паролями
+from supabase_py_config import get_password, set_password
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
@@ -595,6 +612,33 @@ def send_to_telegram(message):
         logger.error(f"Ошибка при отправке в Telegram: {e}")
         return None
 
+# Создаем таблицу settings, если её нет
+def create_settings_table():
+    try:
+        # Проверяем, существует ли таблица settings
+        response = supabase.table("settings").select("count").limit(1).execute()
+        logger.info("Таблица settings существует")
+    except Exception as e:
+        logger.error(f"Ошибка при проверке таблицы settings: {e}")
+        # Создаем таблицу settings через SQL
+        try:
+            sql = """
+            CREATE TABLE IF NOT EXISTS settings (
+                id SERIAL PRIMARY KEY,
+                key TEXT NOT NULL UNIQUE,
+                value TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+            """
+            supabase.table("settings").insert({"key": "user_password", "value": "1234"}).execute()
+            supabase.table("settings").insert({"key": "admin_password", "value": "admin"}).execute()
+            logger.info("Таблица settings создана и заполнена начальными данными")
+        except Exception as e:
+            logger.error(f"Ошибка при создании таблицы settings: {e}")
+
+# Вызываем функцию создания таблицы при запуске
+create_settings_table()
+
 @app.route('/')
 def index():
     return redirect(url_for('login'))
@@ -603,10 +647,13 @@ def index():
 def login():
     if request.method == 'POST':
         password = request.form.get('password')
-        if password == USER_PASSWORD:
+        user_password = get_password('user')
+        admin_password = get_password('admin')
+        
+        if password == user_password:
             session['user'] = True
             return redirect(url_for('menu'))
-        elif password == ADMIN_PASSWORD:
+        elif password == admin_password:
             session['admin'] = True
             return redirect(url_for('admin'))
         return render_template('login.html', error='Неверный пароль')
@@ -617,7 +664,9 @@ def admin_login():
     if request.method == 'POST':
         try:
             password = request.form.get('password')
-            if password == ADMIN_PASSWORD:
+            admin_password = get_password('admin')
+            
+            if password == admin_password:
                 session['admin'] = True
                 return redirect(url_for('admin'))
             else:
@@ -891,35 +940,13 @@ def change_password():
     if not session.get('admin'):
         return redirect(url_for('login'))
     
-    # Объявляем глобальные переменные в начале функции
-    global USER_PASSWORD
-    global ADMIN_PASSWORD
-    
     password_type = request.form.get('password_type')
     new_password = request.form.get('new_password')
     
     try:
-        # Читаем текущее содержимое файла config.py
-        with open('config.py', 'r') as f:
-            content = f.read()
-        
-        # Обновляем содержимое файла в зависимости от типа пароля
-        if password_type == 'user':
-            # Заменяем строку с паролем пользователя
-            content = content.replace(f'USER_PASSWORD = "{USER_PASSWORD}"', f'USER_PASSWORD = "{new_password}"')
-            # Обновляем глобальную переменную
-            USER_PASSWORD = new_password
-            flash('Пароль пользователя изменен', 'success')
-        elif password_type == 'admin':
-            # Заменяем строку с паролем администратора
-            content = content.replace(f'ADMIN_PASSWORD = "{ADMIN_PASSWORD}"', f'ADMIN_PASSWORD = "{new_password}"')
-            # Обновляем глобальную переменную
-            ADMIN_PASSWORD = new_password
-            flash('Пароль администратора изменен', 'success')
-        
-        # Записываем обновленное содержимое обратно в файл
-        with open('config.py', 'w') as f:
-            f.write(content)
+        # Сохраняем пароль в базе данных
+        set_password(password_type, new_password)
+        flash(f'Пароль {"пользователя" if password_type == "user" else "администратора"} изменен', 'success')
     except Exception as e:
         logger.error(f"Ошибка при изменении пароля: {e}")
         flash(f'Ошибка при изменении пароля: {str(e)}', 'error')
