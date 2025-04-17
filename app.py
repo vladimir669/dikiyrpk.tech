@@ -357,6 +357,16 @@ textarea {
   text-align: right;
 }
 
+/* Убираем стрелки у полей ввода чисел */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+input[type=number] {
+    -moz-appearance: textfield; /* Firefox */
+}
+
 /* Админ-панель */
 .admin-container {
   background-color: white;
@@ -695,6 +705,7 @@ def supplier_form(supplier_id):
             
             for product in products:
                 quantity = request.form.get(f'product_{product["id"]}')
+                # Проверяем, что значение является числом и больше 0
                 if quantity and quantity.strip() and quantity.strip().isdigit() and int(quantity.strip()) > 0:
                     request_items.append({
                         "request_id": request_id,
@@ -707,7 +718,7 @@ def supplier_form(supplier_id):
                         "quantity": int(quantity.strip())
                     })
             
-            # Добавляем товары в заявку, даже если их нет
+            # Добавляем товары в заявку, если они есть
             if request_items:
                 supabase.table("request_items").insert(request_items).execute()
             
