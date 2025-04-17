@@ -876,14 +876,11 @@ def supplier_form(supplier_id):
                             })
                             
                             selected_products.append({
-                                "name": product["name"],
-                                "quantity": quantity,
-                                "unit": quantity_str[quantity_match.end():].strip() if quantity_match.end() < len(quantity_str) else ""
-                            })
-            
-            # Добавляем товары в заявку  else ""
-                            })
-            
+                            "name": product["name"],
+                            "quantity": quantity,
+                            "unit": quantity_str[quantity_match.end():].strip() if quantity_match.end() < len(quantity_str) else ""
+                        })
+
             # Добавляем товары в заявку
             if request_items:
                 supabase.table("request_items").insert(request_items).execute()
