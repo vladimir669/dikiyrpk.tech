@@ -674,22 +674,6 @@ def supplier_form(supplier_id):
                 branch_name = branch['name']
                 break
         
-        # Проверяем, выбран ли хотя бы один товар
-        has_products = False
-        for product in products:
-            quantity = request.form.get(f'product_{product["id"]}')
-            if quantity and quantity.strip() and quantity.strip().isdigit() and int(quantity.strip()) > 0:
-                has_products = True
-                break
-                
-        if not has_products:
-            flash('Пожалуйста, выберите хотя бы один товар', 'error')
-            return render_template('supplier_form.html', 
-                                  supplier=supplier, 
-                                  products=products, 
-                                  branches=branches, 
-                                  today=datetime.now().strftime('%Y-%m-%d'))
-        
         # Создаем новую заявку
         request_data = {
             "cook_name": cook_name,
@@ -723,38 +707,38 @@ def supplier_form(supplier_id):
                         "quantity": int(quantity.strip())
                     })
             
+            # Добавляем товары в заявку, даже если их нет
             if request_items:
                 supabase.table("request_items").insert(request_items).execute()
-                
-                # Формируем сообщение для Telegram
-                emoji = "📦"
-                if supplier['name'] == "Рыба":
-                    emoji = "🐟"
-                elif supplier['name'] == "Хоз. товары":
-                    emoji = "🧹"
-                
-                message = f"{emoji} <b>{supplier['name']}</b>\n"
-                message += f"🏢 <b>Филиал:</b> {branch_name}\n"
-                message += f"👨‍🍳 <b>Повар:</b> {cook_name}\n"
-                message += f"📅 <b>Дата заявки:</b> {request_date}\n"
-                message += f"📝 <b>Дата заполнения:</b> {fill_date}\n\n"
-                
+            
+            # Формируем сообщение для Telegram
+            emoji = "📦"
+            if supplier['name'] == "Рыба":
+                emoji = "🐟"
+            elif supplier['name'] == "Хоз. товары":
+                emoji = "🧹"
+            
+            message = f"{emoji} <b>{supplier['name']}</b>\n"
+            message += f"🏢 <b>Филиал:</b> {branch_name}\n"
+            message += f"👨‍🍳 <b>Повар:</b> {cook_name}\n"
+            message += f"📅 <b>Дата заявки:</b> {request_date}\n"
+            message += f"📝 <b>Дата заполнения:</b> {fill_date}\n\n"
+            
+            if selected_products:
                 for item in selected_products:
                     message += f"🔹 {item['name']}: {item['quantity']}\n"
-                
-                # Отправляем сообщение в Telegram
-                telegram_response = send_to_telegram(message)
-                
-                if telegram_response and telegram_response.get('ok'):
-                    flash('Заявка успешно отправлена в Telegram!', 'success')
-                else:
-                    flash('Заявка создана, но возникла проблема с отправкой в Telegram', 'warning')
-                
-                return redirect(url_for('menu'))
             else:
-                # Если нет товаров, удаляем созданную заявку
-                supabase.table("requests").delete().eq("id", request_id).execute()
-                flash('Пожалуйста, выберите хотя бы один товар', 'error')
+                message += "Товары не выбраны\n"
+            
+            # Отправляем сообщение в Telegram
+            telegram_response = send_to_telegram(message)
+            
+            if telegram_response and telegram_response.get('ok'):
+                flash('Заявка успешно отправлена в Telegram!', 'success')
+            else:
+                flash('Заявка создана, но возникла проблема с отправкой в Telegram', 'warning')
+            
+            return redirect(url_for('menu'))
         else:
             flash('Ошибка при создании заявки', 'error')
     
