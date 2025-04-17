@@ -67,23 +67,63 @@ def get_request_with_items(request_id):
 
 def get_password(password_type):
     """Получить пароль из базы данных"""
-    response = supabase.table("settings").select("value").eq("key", f"{password_type}_password").single().execute()
-    if response.data:
-        return response.data['value']
-    
-    # Если пароль не найден, устанавливаем значение по умолчанию
-    default_password = "1234" if password_type == "user" else "admin"
-    supabase.table("settings").insert({"key": f"{password_type}_password", "value": default_password}).execute()
-    return default_password
+    try:
+        # Сначала проверим, существует ли таблица settings
+        try:
+            response = supabase.table("settings").select("value").eq("key", f"{password_type}_password").single().execute()
+            if response.data:
+                return response.data['value']
+        except Exception as e:
+            logger.error(f"Ошибка при получении пароля: {e}")
+            # Возможно, таблица не существует, попробуем создать её
+            create_settings_table()
+            
+            # Повторная попытка получить пароль
+            try:
+                response = supabase.table("settings").select("value").eq("key", f"{password_type}_password").single().execute()
+                if response.data:
+                    return response.data['value']
+            except:
+                pass
+        
+        # Если пароль не найден или произошла ошибка, возвращаем значение по умолчанию
+        default_password = "1234" if password_type == "user" else "admin"
+        return default_password
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при получении пароля: {e}")
+        return "1234" if password_type == "user" else "admin"
 
 def set_password(password_type, new_password):
     """Установить пароль в базе данных"""
-    response = supabase.table("settings").select("*").eq("key", f"{password_type}_password").execute()
-    if response.data:
-        supabase.table("settings").update({"value": new_password}).eq("key", f"{password_type}_password").execute()
-    else:
-        supabase.table("settings").insert({"key": f"{password_type}_password", "value": new_password}).execute()
-    return True
+    try:
+        # Сначала проверим, существует ли таблица settings
+        try:
+            response = supabase.table("settings").select("*").eq("key", f"{password_type}_password").execute()
+            if response.data:
+                supabase.table("settings").update({"value": new_password}).eq("key", f"{password_type}_password").execute()
+                return True
+            else:
+                supabase.table("settings").insert({"key": f"{password_type}_password", "value": new_password}).execute()
+                return True
+        except Exception as e:
+            logger.error(f"Ошибка при установке пароля: {e}")
+            # Возможно, таблица не существует, попробуем создать её
+            create_settings_table()
+            
+            # Повторная попытка установить пароль
+            try:
+                response = supabase.table("settings").select("*").eq("key", f"{password_type}_password").execute()
+                if response.data:
+                    supabase.table("settings").update({"value": new_password}).eq("key", f"{password_type}_password").execute()
+                else:
+                    supabase.table("settings").insert({"key": f"{password_type}_password", "value": new_password}).execute()
+                return True
+            except Exception as e:
+                logger.error(f"Повторная ошибка при установке пароля: {e}")
+                return False
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при установке пароля: {e}")
+        return False
 ''')
     
     # Создаем файл config.py, если его нет
@@ -657,7 +697,7 @@ def send_to_telegram(message):
 # Создаем таблицу settings, если её нет
 def create_settings_table():
     try:
-        # Проверяем, существует ли таблица settings
+        # Проверяем, существует ли таблица settings, пытаясь выполнить запрос
         try:
             response = supabase.table("settings").select("count").limit(1).execute()
             logger.info("Таблица settings существует")
@@ -665,20 +705,21 @@ def create_settings_table():
             logger.error(f"Ошибка при проверке таблицы settings: {e}")
             # Создаем таблицу settings через SQL
             try:
-                # Проверяем, существуют ли пароли в таблице
-                try:
-                    user_password = get_password('user')
-                    admin_password = get_password('admin')
-                    logger.info("Пароли успешно получены из базы данных")
-                except Exception as e:
-                    logger.error(f"Ошибка при получении паролей: {e}")
-                    # Добавляем пароли по умолчанию
-                    try:
-                        supabase.table("settings").insert({"key": "user_password", "value": "1234"}).execute()
-                        supabase.table("settings").insert({"key": "admin_password", "value": "admin"}).execute()
-                        logger.info("Пароли по умолчанию добавлены в базу данных")
-                    except Exception as e:
-                        logger.error(f"Ошибка при добавлении паролей по умолчанию: {e}")
+                # Используем SQL для создания таблицы
+                sql_query = """
+                CREATE TABLE IF NOT EXISTS public.settings (
+                    id SERIAL PRIMARY KEY,
+                    key TEXT NOT NULL UNIQUE,
+                    value TEXT NOT NULL
+                );
+                """
+                supabase.postgrest.rpc('exec', {'query': sql_query}).execute()
+                logger.info("Таблица settings успешно создана")
+                
+                # Добавляем пароли по умолчанию
+                supabase.table("settings").insert({"key": "user_password", "value": "1234"}).execute()
+                supabase.table("settings").insert({"key": "admin_password", "value": "admin"}).execute()
+                logger.info("Пароли по умолчанию добавлены в базу данных")
             except Exception as e:
                 logger.error(f"Ошибка при создании таблицы settings: {e}")
     except Exception as e:
@@ -818,21 +859,32 @@ def supplier_form(supplier_id):
             for product in products:
                 quantity_str = request.form.get(f'product_{product["id"]}')
                 # Проверяем, что значение не пустое и содержит только цифры
-                if quantity_str and quantity_str.strip() and quantity_str.strip().isdigit():
-                    quantity = int(quantity_str.strip())
-                    if quantity > 0:
-                        request_items.append({
-                            "request_id": request_id,
-                            "product_id": product["id"],
-                            "quantity": quantity
-                        })
-                        
-                        selected_products.append({
-                            "name": product["name"],
-                            "quantity": quantity
-                        })
+                if quantity_str and quantity_str.strip():
+                    # Обрабатываем возможные форматы ввода (например, "10 кг")
+                    quantity_str = quantity_str.strip()
+                    # Извлекаем числовую часть
+                    import re
+                    quantity_match = re.match(r'^(\d+)', quantity_str)
+                    if quantity_match:
+                        quantity = int(quantity_match.group(1))
+                        if quantity > 0:
+                            request_items.append({
+                                "request_id": request_id,
+                                "product_id": product["id"],
+                                "quantity": quantity,
+                                "unit": quantity_str[quantity_match.end():].strip() if quantity_match.end() < len(quantity_str) else ""
+                            })
+                            
+                            selected_products.append({
+                                "name": product["name"],
+                                "quantity": quantity,
+                                "unit": quantity_str[quantity_match.end():].strip() if quantity_match.end() < len(quantity_str) else ""
+                            })
             
-            # Добавляем товары в заявку, если они есть
+            # Добавляем товары в заявку  else ""
+                            })
+            
+            # Добавляем товары в заявку
             if request_items:
                 supabase.table("request_items").insert(request_items).execute()
             
@@ -851,7 +903,8 @@ def supplier_form(supplier_id):
             
             if selected_products:
                 for item in selected_products:
-                    message += f"🔹 {item['name']}: {item['quantity']}\n"
+                    unit_text = f" {item['unit']}" if item['unit'] else ""
+                    message += f"🔹 {item['name']}: {item['quantity']}{unit_text}\n"
             else:
                 message += "Товары не выбраны\n"
             
