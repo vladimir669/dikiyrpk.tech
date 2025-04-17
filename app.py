@@ -4,6 +4,7 @@ from datetime import datetime
 import requests
 import json
 import logging
+import inspect
 
 # Настройка логирования
 logging.basicConfig(
@@ -100,7 +101,48 @@ GROUP_ID = '-1002633190524'
     from config import BOT_TOKEN, GROUP_ID
     from supabase_py_config import supabase, get_suppliers, get_products_by_supplier, get_all_products
 
-# Импортируем функции для работы с паролями
+# Проверяем наличие функций get_password и set_password в supabase_py_config
+# Если их нет, добавляем их динамически
+import supabase_py_config
+import types
+
+if not hasattr(supabase_py_config, 'get_password'):
+    def get_password(password_type):
+        """Получить пароль из базы данных"""
+        try:
+            response = supabase_py_config.supabase.table("settings").select("value").eq("key", f"{password_type}_password").single().execute()
+            if response.data:
+                return response.data['value']
+            
+            # Если пароль не найден, устанавливаем значение по умолчанию
+            default_password = "1234" if password_type == "user" else "admin"
+            supabase_py_config.supabase.table("settings").insert({"key": f"{password_type}_password", "value": default_password}).execute()
+            return default_password
+        except Exception as e:
+            logger.error(f"Ошибка при получении пароля: {e}")
+            return "1234" if password_type == "user" else "admin"
+    
+    # Добавляем функцию в модуль
+    supabase_py_config.get_password = get_password
+
+if not hasattr(supabase_py_config, 'set_password'):
+    def set_password(password_type, new_password):
+        """Установить пароль в базе данных"""
+        try:
+            response = supabase_py_config.supabase.table("settings").select("*").eq("key", f"{password_type}_password").execute()
+            if response.data:
+                supabase_py_config.supabase.table("settings").update({"value": new_password}).eq("key", f"{password_type}_password").execute()
+            else:
+                supabase_py_config.supabase.table("settings").insert({"key": f"{password_type}_password", "value": new_password}).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка при установке пароля: {e}")
+            return False
+    
+    # Добавляем функцию в модуль
+    supabase_py_config.set_password = set_password
+
+# Теперь можно импортировать функции
 from supabase_py_config import get_password, set_password
 
 app = Flask(__name__)
@@ -616,25 +658,31 @@ def send_to_telegram(message):
 def create_settings_table():
     try:
         # Проверяем, существует ли таблица settings
-        response = supabase.table("settings").select("count").limit(1).execute()
-        logger.info("Таблица settings существует")
-    except Exception as e:
-        logger.error(f"Ошибка при проверке таблицы settings: {e}")
-        # Создаем таблицу settings через SQL
         try:
-            sql = """
-            CREATE TABLE IF NOT EXISTS settings (
-                id SERIAL PRIMARY KEY,
-                key TEXT NOT NULL UNIQUE,
-                value TEXT NOT NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            );
-            """
-            supabase.table("settings").insert({"key": "user_password", "value": "1234"}).execute()
-            supabase.table("settings").insert({"key": "admin_password", "value": "admin"}).execute()
-            logger.info("Таблица settings создана и заполнена начальными данными")
+            response = supabase.table("settings").select("count").limit(1).execute()
+            logger.info("Таблица settings существует")
         except Exception as e:
-            logger.error(f"Ошибка при создании таблицы settings: {e}")
+            logger.error(f"Ошибка при проверке таблицы settings: {e}")
+            # Создаем таблицу settings через SQL
+            try:
+                # Проверяем, существуют ли пароли в таблице
+                try:
+                    user_password = get_password('user')
+                    admin_password = get_password('admin')
+                    logger.info("Пароли успешно получены из базы данных")
+                except Exception as e:
+                    logger.error(f"Ошибка при получении паролей: {e}")
+                    # Добавляем пароли по умолчанию
+                    try:
+                        supabase.table("settings").insert({"key": "user_password", "value": "1234"}).execute()
+                        supabase.table("settings").insert({"key": "admin_password", "value": "admin"}).execute()
+                        logger.info("Пароли по умолчанию добавлены в базу данных")
+                    except Exception as e:
+                        logger.error(f"Ошибка при добавлении паролей по умолчанию: {e}")
+            except Exception as e:
+                logger.error(f"Ошибка при создании таблицы settings: {e}")
+    except Exception as e:
+        logger.error(f"Общая ошибка при создании таблицы settings: {e}")
 
 # Вызываем функцию создания таблицы при запуске
 create_settings_table()
@@ -647,16 +695,27 @@ def index():
 def login():
     if request.method == 'POST':
         password = request.form.get('password')
-        user_password = get_password('user')
-        admin_password = get_password('admin')
-        
-        if password == user_password:
-            session['user'] = True
-            return redirect(url_for('menu'))
-        elif password == admin_password:
-            session['admin'] = True
-            return redirect(url_for('admin'))
-        return render_template('login.html', error='Неверный пароль')
+        try:
+            user_password = get_password('user')
+            admin_password = get_password('admin')
+            
+            if password == user_password:
+                session['user'] = True
+                return redirect(url_for('menu'))
+            elif password == admin_password:
+                session['admin'] = True
+                return redirect(url_for('admin'))
+            return render_template('login.html', error='Неверный пароль')
+        except Exception as e:
+            logger.error(f"Ошибка при входе: {e}")
+            # Если не удалось получить пароли из базы данных, используем значения по умолчанию
+            if password == "1234":
+                session['user'] = True
+                return redirect(url_for('menu'))
+            elif password == "admin":
+                session['admin'] = True
+                return redirect(url_for('admin'))
+            return render_template('login.html', error='Неверный пароль')
     return render_template('login.html')
 
 @app.route('/admin_login', methods=['GET', 'POST'])
@@ -664,7 +723,11 @@ def admin_login():
     if request.method == 'POST':
         try:
             password = request.form.get('password')
-            admin_password = get_password('admin')
+            try:
+                admin_password = get_password('admin')
+            except Exception as e:
+                logger.error(f"Ошибка при получении пароля администратора: {e}")
+                admin_password = "admin"  # Значение по умолчанию
             
             if password == admin_password:
                 session['admin'] = True
