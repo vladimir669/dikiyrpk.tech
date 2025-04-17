@@ -891,6 +891,10 @@ def change_password():
     if not session.get('admin'):
         return redirect(url_for('login'))
     
+    # Объявляем глобальные переменные в начале функции
+    global USER_PASSWORD
+    global ADMIN_PASSWORD
+    
     password_type = request.form.get('password_type')
     new_password = request.form.get('new_password')
     
@@ -904,14 +908,12 @@ def change_password():
             # Заменяем строку с паролем пользователя
             content = content.replace(f'USER_PASSWORD = "{USER_PASSWORD}"', f'USER_PASSWORD = "{new_password}"')
             # Обновляем глобальную переменную
-            global USER_PASSWORD
             USER_PASSWORD = new_password
             flash('Пароль пользователя изменен', 'success')
         elif password_type == 'admin':
             # Заменяем строку с паролем администратора
             content = content.replace(f'ADMIN_PASSWORD = "{ADMIN_PASSWORD}"', f'ADMIN_PASSWORD = "{new_password}"')
             # Обновляем глобальную переменную
-            global ADMIN_PASSWORD
             ADMIN_PASSWORD = new_password
             flash('Пароль администратора изменен', 'success')
         
