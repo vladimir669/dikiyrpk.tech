@@ -131,7 +131,7 @@ def set_password(password_type, new_password):
         with open('config.py', 'w') as f:
             f.write('''
 # Telegram Bot API Token
-BOT_TOKEN = '7937013933:AAF_iuBecx-o0etgGZhEzWGxv3cBHWfDpYQ'
+BOT_TOKEN = '7814525121:AAGEdM9KuaTk4uG6mhf4lhHBaOqE6lqDqTg'
 
 # Telegram Group ID
 GROUP_ID = '-1002633190524'
